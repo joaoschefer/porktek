@@ -4,7 +4,7 @@ from .models import Lote, Chegada, Morte, Observacao
 class LoteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Lote
-        fields = ['id', 'nome', 'quantidade_inicial', 'ativo', 'criado_em']
+        fields = ['id', 'nome', 'quantidade_inicial', 'ativo', 'criado_em', 'finalizado_em']
 
 class ChegadaSerializer(serializers.ModelSerializer):
     class Meta:

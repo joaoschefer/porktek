@@ -4,6 +4,7 @@ class Lote(models.Model):
     nome = models.CharField(max_length=100)
     quantidade_inicial = models.PositiveIntegerField(default=0)
     ativo = models.BooleanField(default=True)
+    finalizado_em = models.DateTimeField(null=True, blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
