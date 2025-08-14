@@ -49,4 +49,9 @@ export const api = {
   getObservacoes:   (loteId) => req(`/observacoes/?lote=${encodeURIComponent(loteId)}`),
   postObservacao:   (payload) => req(`/observacoes/`, { method: 'POST', body: JSON.stringify(payload) }),
   deleteObservacao: (id) => req(`/observacoes/${id}/`, { method: 'DELETE' }),
+
+  //deletar lote
+  deleteLote: (id) => req(`/lotes/${id}/`, { method: 'DELETE' }),
+  deleteLotesFinalizados: (ids) =>
+    req(`/lotes/finalizados/excluir/`, { method: 'POST', body: JSON.stringify({ ids }) }),
 };

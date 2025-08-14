@@ -1,6 +1,6 @@
 // src/screens/HomeScreen.js
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, FlatList, StyleSheet, Text } from 'react-native';
+import { View, FlatList, StyleSheet, Text, Alert } from 'react-native';
 import { Appbar, Card, Button, Divider, TextInput, Snackbar } from 'react-native-paper';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { api } from '../services/api';
@@ -18,14 +18,12 @@ export default function HomeScreen() {
   const carregar = useCallback(async () => {
     try {
       setLoading(true);
-      // carrega lote ativo (resumo) — se não houver, cai no catch e deixa null
       try {
         const resumo = await api.getResumoAtivo();
         setResumoAtivo(resumo);
       } catch {
         setResumoAtivo(null);
       }
-      // carrega finalizados
       const fins = await api.getFinalizados();
       setFinalizados(fins);
     } catch (e) {
@@ -66,6 +64,58 @@ export default function HomeScreen() {
     }
   };
 
+  const confirmarExcluir = (item) => {
+    Alert.alert(
+      'Excluir lote',
+      `Tem certeza que deseja excluir “${item.nome}”? Esta ação não pode ser desfeita.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: () => excluirFinalizado(item.id),
+        },
+      ]
+    );
+  };
+
+  const excluirFinalizado = async (id) => {
+    try {
+      await api.deleteLote(id); // DELETE /lotes/{id}/
+      setFinalizados((prev) => prev.filter((x) => x.id !== id));
+      setSnack({ visible: true, msg: 'Lote excluído.' });
+    } catch (e) {
+      console.log('Erro excluir lote:', e.message);
+      setSnack({ visible: true, msg: 'Falha ao excluir.' });
+    }
+  };
+
+  // (Opcional) Excluir todos os finalizados visíveis
+  const excluirTodosFinalizados = async () => {
+    if (finalizados.length === 0) return;
+    Alert.alert(
+      'Excluir todos',
+      'Tem certeza que deseja excluir TODOS os lotes finalizados listados?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Excluir todos',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const ids = finalizados.map((f) => f.id);
+              await api.deleteLotesFinalizados(ids);
+              setFinalizados([]);
+              setSnack({ visible: true, msg: 'Todos os lotes finalizados foram excluídos.' });
+            } catch (e) {
+              setSnack({ visible: true, msg: 'Falha ao excluir em lote.' });
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const renderLoteFinalizado = ({ item }) => (
     <Card
       style={styles.card}
@@ -78,6 +128,11 @@ export default function HomeScreen() {
         titleStyle={styles.cardTitle}
         subtitleStyle={styles.cardSubtitle}
       />
+      <Card.Actions style={{ justifyContent: 'flex-end', paddingRight: 12, paddingBottom: 8 }}>
+        <Button mode="text" onPress={() => confirmarExcluir(item)} textColor="#B00020">
+          Excluir
+        </Button>
+      </Card.Actions>
     </Card>
   );
 
@@ -85,6 +140,10 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <Appbar.Header style={styles.appBar}>
         <Appbar.Content title="Início" titleStyle={styles.appBarTitle} />
+        {/* (Opcional) Botão para excluir todos */}
+        {finalizados.length > 0 ? (
+          <Appbar.Action icon="delete-sweep" onPress={excluirTodosFinalizados} />
+        ) : null}
       </Appbar.Header>
 
       <View style={styles.content}>
@@ -94,7 +153,7 @@ export default function HomeScreen() {
             title={resumoAtivo ? resumoAtivo.nome : 'Sem lote ativo'}
             subtitle={
               resumoAtivo
-                ? `Quantidade inicial: ${resumoAtivo.quantidade_inicial} · Suínos: ${resumoAtivo.suinos_em_andamento} · Mortes: ${resumoAtivo.total_mortes}`
+                ? `Suínos: ${resumoAtivo.suinos_em_andamento} · Mortes: ${resumoAtivo.total_mortes}`
                 : 'Crie um novo lote ativo para começar'
             }
             titleStyle={styles.cardTitleAtual}
@@ -133,12 +192,7 @@ export default function HomeScreen() {
               value={novoNome}
               onChangeText={setNovoNome}
             />
-            <Button
-              mode="contained"
-              onPress={criarNovo}
-              style={{ marginTop: 12 }}
-              disabled={loading}
-            >
+            <Button mode="contained" onPress={criarNovo} style={{ marginTop: 12 }} disabled={loading}>
               Criar
             </Button>
           </Card.Content>

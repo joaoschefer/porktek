@@ -15,7 +15,7 @@ export default function LoteAtualScreen({ navigation }) {
   const carregarResumo = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await api.getResumoAtivo(); // um único endpoint
+      const data = await api.getResumoAtivo(); // GET /lotes/ativo/resumo/
       setResumo(data);
     } catch (e) {
       console.log('Erro ao buscar resumo ativo:', e.message);
@@ -37,11 +37,7 @@ export default function LoteAtualScreen({ navigation }) {
             title={resumo?.nome || 'Sem lote ativo'}
             titleVariant="titleMedium"
             titleStyle={styles.cardTitle}
-            subtitle={
-              resumo
-                ? `Quantidade inicial: ${resumo.quantidade_inicial}`
-                : 'Crie um lote ativo para começar'
-            }
+            subtitle={resumo ? `Status: ${resumo.status}` : 'Crie um lote ativo para começar'}
             subtitleStyle={styles.cardSubtitle}
           />
 

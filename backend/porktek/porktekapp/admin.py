@@ -3,7 +3,7 @@ from .models import Lote, Chegada, Morte, Observacao
 
 @admin.register(Lote)
 class LoteAdmin(admin.ModelAdmin):
-    list_display = ('id','nome','quantidade_inicial','ativo','criado_em')
+    list_display = ('id','nome','ativo','criado_em')
     list_filter = ('ativo',)
     search_fields = ('nome',)
 

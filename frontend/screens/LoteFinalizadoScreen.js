@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useCallback, use } from 'react';
+// src/screens/LoteFinalizadoScreen.js
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Card, Divider, Chip } from 'react-native-paper';
 import { api } from '../services/api';
@@ -17,8 +18,8 @@ const toBR = (yyyy_mm_dd) => {
   return `${d.padStart(2,'0')}/${m.padStart(2,'0')}/${y}`;
 };
 
-export default function LoteFinalizadoScreen({ route, navigation }) {
-  const { lote } = route.params || {};
+export default function LoteFinalizadoScreen({ route }) {
+  const { lote } = route.params || {};   // veio da Home via finalizados
   const loteId = Number(lote?.id);
 
   const [resumo, setResumo] = useState(null);
@@ -32,10 +33,10 @@ export default function LoteFinalizadoScreen({ route, navigation }) {
     try {
       setLoading(true);
       const [r, cs, ms, os] = await Promise.all([
-        api.getResumoLote(loteId),
-        api.getChegadas(loteId),
-        api.getMortes(loteId),
-        api.getObservacoes(loteId),
+        api.getResumoLote(loteId),   // /lotes/{id}/resumo/
+        api.getChegadas(loteId),     // /chegadas/?lote={id}
+        api.getMortes(loteId),       // /mortes/?lote={id}
+        api.getObservacoes(loteId),  // /observacoes/?lote={id}
       ]);
       setResumo(r);
       setChegadas(cs);
@@ -48,7 +49,7 @@ export default function LoteFinalizadoScreen({ route, navigation }) {
     }
   }, [loteId]);
 
-  useEffect(() => {carregar(); }, [carregar]);
+  useEffect(() => { carregar(); }, [carregar]);
 
   const Header = () => (
     <Card style={styles.cardHeader} elevation={2}>
@@ -75,9 +76,6 @@ export default function LoteFinalizadoScreen({ route, navigation }) {
     <Card style={styles.card} elevation={1}>
       <Card.Title title="Resumo do Lote" />
       <Card.Content style={{ gap: 6 }}>
-        <Text style={styles.line}>
-          Quantidade inicial: <Text style={styles.value}>{resumo?.quantidade_inicial ?? '-'}</Text>
-        </Text>
         <Text style={styles.line}>
           Chegadas (total de suínos): <Text style={styles.value}>{resumo?.total_chegadas ?? 0}</Text>
         </Text>
@@ -191,4 +189,3 @@ const styles = StyleSheet.create({
   itemTitle: { fontWeight: '700', color: '#2C3E50' },
   itemLine: { color: '#2C3E50' },
 });
-
