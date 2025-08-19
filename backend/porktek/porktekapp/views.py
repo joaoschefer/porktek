@@ -2,9 +2,9 @@
 from rest_framework import viewsets, decorators, response, status
 from django.db.models import Sum
 from django.utils import timezone
-from .models import Lote, Chegada, Morte, Observacao
+from .models import Lote, Chegada, Morte, Observacao, RacaoEntrada, Saida
 from .serializers import (
-    LoteSerializer, ChegadaSerializer, MorteSerializer, ObservacaoSerializer, ResumoLoteSerializer
+    LoteSerializer, ChegadaSerializer, MorteSerializer, ObservacaoSerializer, ResumoLoteSerializer, RacaoEntradaSerializer, SaidaSerializer
 )
 
 class LoteViewSet(viewsets.ModelViewSet):
@@ -118,6 +118,26 @@ class MorteViewSet(viewsets.ModelViewSet):
 class ObservacaoViewSet(viewsets.ModelViewSet):
     queryset = Observacao.objects.all().order_by('-criado_em')
     serializer_class = ObservacaoSerializer
+    def get_queryset(self):
+        qs = super().get_queryset()
+        lote_id = self.request.query_params.get('lote')
+        return qs.filter(lote_id=lote_id) if lote_id else qs
+    
+class RacaoEntradaViewSet(viewsets.ModelViewSet):
+    queryset = RacaoEntrada.objects.all().order_by('-data', '-id')
+    serializer_class = RacaoEntradaSerializer
+
+    #/api/racoes/?lote=ID
+    def get_queryset(self):
+        qs = super().get_queryset()
+        lote_id = self.request.query_params.get('lote')
+        return qs.filter(lote_id=lote_id) if lote_id else qs
+    
+class SaidaViewSet(viewsets.ModelViewSet):
+    queryset = Saida.objects.all().order_by('-data', '-id')
+    serializer_class = SaidaSerializer
+
+    #/api/saidas/?lote=ID
     def get_queryset(self):
         qs = super().get_queryset()
         lote_id = self.request.query_params.get('lote')

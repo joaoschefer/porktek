@@ -1,4 +1,3 @@
-// src/screens/LoteAtualScreen.js
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Card, Button, Divider, Chip } from 'react-native-paper';
@@ -99,6 +98,30 @@ export default function LoteAtualScreen({ navigation }) {
             disabled={noLote}
           >
             Observações
+          </Button>
+
+          <Button
+            mode="contained"
+            icon="food-apple"
+            onPress={() => navigation.navigate('Racao', { lote: resumo ? { id: resumo.lote_id, nome: resumo.nome } : null })}
+            style={styles.btn}
+            contentStyle={styles.btnContent}
+            labelStyle={styles.btnLabel}
+            disabled={!resumo}
+          >
+            Ração
+          </Button>
+
+          <Button
+            mode="contained"
+            icon="exit-run"
+            onPress={() => navigation.navigate('Saida', { lote: resumo ? { id: resumo.lote_id, nome: resumo.nome } : null })}
+            style={styles.btn}
+            contentStyle={styles.btnContent}
+            labelStyle={styles.btnLabel}
+            disabled={!resumo}
+          >
+            Saída
           </Button>
         </View>
       </View>

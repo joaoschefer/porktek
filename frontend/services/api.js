@@ -35,6 +35,9 @@ export const api = {
   finalizarAtivo:   () => req(`/lotes/finalizar_ativo/`, { method: 'POST' }),
   criarNovoAtivo:   (nome) => req(`/lotes/criar_ativo/`, { method: 'POST', body: JSON.stringify({ nome }) }),
 
+  getResumoLote: (id) => req(`/lotes/${id}/resumo`),
+
+
   // Chegadas
   getChegadas:   (loteId) => req(`/chegadas/?lote=${encodeURIComponent(loteId)}`),
   postChegada:   (payload) => req(`/chegadas/`, { method: 'POST', body: JSON.stringify(payload) }),
@@ -54,4 +57,14 @@ export const api = {
   deleteLote: (id) => req(`/lotes/${id}/`, { method: 'DELETE' }),
   deleteLotesFinalizados: (ids) =>
     req(`/lotes/finalizados/excluir/`, { method: 'POST', body: JSON.stringify({ ids }) }),
+
+  //racao
+  getRacoes:   (loteId) => req(`/racoes/?lote=${encodeURIComponent(loteId)}`),
+  postRacao:     (payload) => req(`/racoes/`, { method: 'POST', body: JSON.stringify(payload) }),
+  deleteRacao:   (id) => req(`/racoes/${id}/`, { method: 'DELETE' }),
+
+  //saida
+  getSaidas:    (loteId) => req(`/saidas/?lote=${encodeURIComponent(loteId)}`),
+  postSaida:    (payload) => req(`/saidas/`, { method: 'POST', body: JSON.stringify(payload) }),
+  deleteSaida:  (id) => req(`/saidas/${id}/`, { method: 'DELETE' }),
 };

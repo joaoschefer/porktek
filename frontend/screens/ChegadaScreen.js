@@ -13,6 +13,7 @@ export default function ChegadaScreen({ navigation, route }) {
   const [data, setData] = useState('');
   const [quantidade, setQuantidade] = useState('');
   const [pesoMedio, setPesoMedio] = useState('');
+  const [pesoTotal, setPesoTotal] = useState('');        // 👈 NOVO
   const [origem, setOrigem] = useState('');
   const [responsavel, setResponsavel] = useState('');
   const [observacoes, setObservacoes] = useState('');
@@ -57,7 +58,6 @@ export default function ChegadaScreen({ navigation, route }) {
     return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
   };
   const toBR = (yyyy_mm_dd) => {
-    // segura casos vazios
     if (!yyyy_mm_dd) return '';
     const [y, m, d] = String(yyyy_mm_dd).split('-');
     if (!y || !m || !d) return yyyy_mm_dd;
@@ -66,22 +66,37 @@ export default function ChegadaScreen({ navigation, route }) {
 
   // ---- Validações ----
   const qnt = toInt(quantidade);
-  const peso = toFloat(pesoMedio);
+  const pMed = toFloat(pesoMedio);
+  const pTot = toFloat(pesoTotal);
+
+  // Auto-sugerir peso médio se der pra calcular (peso_total / quantidade)
+  useEffect(() => {
+    if ((!pesoMedio || !Number.isFinite(pMed)) && Number.isFinite(qnt) && qnt > 0 && Number.isFinite(pTot) && pTot > 0) {
+      const calc = (pTot / qnt).toFixed(3);
+      setPesoMedio(String(calc));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quantidade, pesoTotal]); // recalcula quando mudar qnt ou total
+
   const errors = {
     data: data.length > 0 && !isValidDate(data),
     quantidade: quantidade.length > 0 && (!Number.isFinite(qnt) || qnt <= 0),
-    pesoMedio: pesoMedio.length > 0 && (!Number.isFinite(peso) || peso <= 0),
+    pesoMedio: pesoMedio.length > 0 && (!Number.isFinite(pMed) || pMed <= 0),
+    // pesoTotal é opcional; se quiser tornar obrigatório, adicione regra:
+    // pesoTotal: pesoTotal.length > 0 && (!Number.isFinite(pTot) || pTot <= 0),
   };
 
   const formOk = useMemo(() => {
     return (
       isValidDate(data) &&
       Number.isFinite(qnt) && qnt > 0 &&
-      Number.isFinite(peso) && peso > 0 &&
+      Number.isFinite(pMed) && pMed > 0 &&
       origem.trim().length > 0 &&
       responsavel.trim().length > 0
+      // Se quiser tornar o total obrigatório, acrescente:
+      // && Number.isFinite(pTot) && pTot > 0
     );
-  }, [data, qnt, peso, origem, responsavel]);
+  }, [data, qnt, pMed, origem, responsavel]);
 
   // ---- Carregar histórico do backend ----
   useEffect(() => {
@@ -90,7 +105,6 @@ export default function ChegadaScreen({ navigation, route }) {
       try {
         setLoadingHist(true);
         const list = await api.getChegadas(lote.id); // GET /chegadas/?lote={id}
-        // list já vem em ordem (view usa order_by), mas garantimos exibição
         setHistorico(list);
       } catch (e) {
         console.log('Erro ao carregar chegadas:', e.message);
@@ -106,6 +120,7 @@ export default function ChegadaScreen({ navigation, route }) {
     setData('');
     setQuantidade('');
     setPesoMedio('');
+    setPesoTotal('');   // 👈 limpa
     setOrigem('');
     setResponsavel('');
     setObservacoes('');
@@ -123,16 +138,15 @@ export default function ChegadaScreen({ navigation, route }) {
         lote: lote.id,
         data: toISO(data),
         quantidade: qnt,
-        peso_medio: peso,
+        peso_medio: pMed,
+        peso_total: Number.isFinite(pTot) ? pTot : null,   // 👈 envia se numérico
         origem: origem.trim(),
         responsavel: responsavel.trim(),
         observacoes: observacoes.trim(),
       };
-      const created = await api.postChegada(payload); // retorna o objeto criado
+      const created = await api.postChegada(payload);
 
-      // insere a criação real do backend no topo
       setHistorico((prev) => [created, ...prev]);
-
       setSnack({ visible: true, msg: 'Chegada salva!' });
       limpar();
     } catch (e) {
@@ -184,6 +198,17 @@ export default function ChegadaScreen({ navigation, route }) {
               <HelperText type="error" visible={errors.quantidade}>Informe um número inteiro &gt; 0.</HelperText>
 
               <TextInput
+                label="Peso total da carga (kg)"
+                value={pesoTotal}
+                onChangeText={setPesoTotal}
+                keyboardType="decimal-pad"
+                mode="outlined"
+                right={<TextInput.Affix text="kg" />}
+                style={styles.mt12}
+              />
+              {/* Se quiser validar, adicione HelperText aqui */}
+
+              <TextInput
                 label="Peso Médio (kg)"
                 value={pesoMedio}
                 onChangeText={setPesoMedio}
@@ -225,7 +250,7 @@ export default function ChegadaScreen({ navigation, route }) {
               <Card key={item.id} style={styles.histItem} mode="contained" elevation={1}>
                 <Card.Title
                   title={`Data: ${toBR(item.data)}`}
-                  subtitle={`Qtd: ${item.quantidade} · Peso médio: ${item.peso_medio} kg`}
+                  subtitle={`Qtd: ${item.quantidade} · Peso médio: ${item.peso_medio} kg${item.peso_total ? ` · Peso total: ${item.peso_total} kg` : ''}`}
                   right={(props) => (
                     <IconButton {...props} icon="delete" onPress={() => removerRegistro(item.id)} accessibilityLabel="Remover registro" />
                   )}

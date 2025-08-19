@@ -32,22 +32,32 @@ export default function LoteFinalizadoScreen({ route }) {
     if (!Number.isFinite(loteId)) return;
     try {
       setLoading(true);
-      const [r, cs, ms, os] = await Promise.all([
-        api.getResumoLote(loteId),   // /lotes/{id}/resumo/
-        api.getChegadas(loteId),     // /chegadas/?lote={id}
-        api.getMortes(loteId),       // /mortes/?lote={id}
-        api.getObservacoes(loteId),  // /observacoes/?lote={id}
+
+      const results = await Promise.allSettled([
+        api.getResumoLote(loteId),
+        api.getChegadas(loteId),
+        api.getMortes(loteId),
+        api.getObservacoes(loteId),
       ]);
-      setResumo(r);
-      setChegadas(cs);
-      setMortes(ms);
-      setObservacoes(os);
-    } catch (e) {
-      console.log('Erro carregar lote finalizado:', e.message);
+
+      const [r, cs, ms, os] = results;
+
+      if (r.status === 'fulfilled') setResumo(r.value);
+      else { setResumo(null); console.log('Resumo falhou:', r.reason?.message); }
+
+      if (cs.status === 'fulfilled') setChegadas(cs.value);
+      else { setChegadas([]); console.log('Chegadas falhou:', cs.reason?.message); }
+
+      if (ms.status === 'fulfilled') setMortes(ms.value);
+      else { setMortes([]); console.log('Mortes falhou:', ms.reason?.message); }
+
+      if (os.status === 'fulfilled') setObservacoes(os.value);
+      else { setObservacoes([]); console.log('Obs falhou:', os.reason?.message); }
     } finally {
       setLoading(false);
     }
   }, [loteId]);
+
 
   useEffect(() => { carregar(); }, [carregar]);
 

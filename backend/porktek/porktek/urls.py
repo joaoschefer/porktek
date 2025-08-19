@@ -1,13 +1,15 @@
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from porktekapp.views import LoteViewSet, ChegadaViewSet, MorteViewSet, ObservacaoViewSet
+from porktekapp.views import LoteViewSet, ChegadaViewSet, MorteViewSet, ObservacaoViewSet, RacaoEntradaViewSet, SaidaViewSet
 
 router = DefaultRouter()
 router.register(r'lotes', LoteViewSet, basename='lote')
 router.register(r'chegadas', ChegadaViewSet, basename='chegada')
 router.register(r'mortes', MorteViewSet, basename='morte')
 router.register(r'observacoes', ObservacaoViewSet, basename='observacao')
+router.register(r'racoes', RacaoEntradaViewSet, basename='racoes')
+router.register(r'saidas', SaidaViewSet, basename='saidas')
 
 urlpatterns = [
     path('admin/', admin.site.urls),

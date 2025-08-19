@@ -1,6 +1,7 @@
 // src/screens/MortesScreen.js
 import React, { useState, useEffect } from 'react';
 import { ScrollView, Alert, StyleSheet, View, Text, TextInput, TouchableOpacity } from 'react-native';
+import { SegmentedButtons } from 'react-native-paper';
 import { api } from '../services/api';
 
 export default function MortesScreen({ navigation, route }) {
@@ -9,16 +10,17 @@ export default function MortesScreen({ navigation, route }) {
   const [dataMorte, setDataMorte] = useState('');
   const [causa, setCausa] = useState('');
   const [mossa, setMossa] = useState('');
+  const [sexo, setSexo] = useState('ND'); // 'M' | 'F' | 'ND'
 
   const [historico, setHistorico] = useState([]);
 
   const isDateISO = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s);
 
-  // 🔹 Carregar mortes já registradas do backend
+  // Carregar mortes do backend
   useEffect(() => {
     const carregarHistorico = async () => {
       try {
-        const data = await api.getMortes(lote.id); // endpoint GET /api/mortes/?lote={id}
+        const data = await api.getMortes(lote.id); // GET /api/mortes/?lote={id}
         setHistorico(data);
       } catch (e) {
         console.log('Erro ao carregar mortes:', e.message);
@@ -42,13 +44,12 @@ export default function MortesScreen({ navigation, route }) {
         data_morte: dataMorte.trim(),
         causa: causa.trim(),
         mossa: String(mossa).trim(),
+        sexo, // 👈 enviar sexo
       };
       const novaMorte = await api.postMorte(payload);
 
-      setHistorico((prev) => [novaMorte, ...prev]); // adiciona no histórico
-      setDataMorte('');
-      setCausa('');
-      setMossa('');
+      setHistorico((prev) => [novaMorte, ...prev]);
+      setDataMorte(''); setCausa(''); setMossa(''); setSexo('ND');
       Alert.alert('Sucesso', 'Morte registrada com sucesso.');
     } catch (e) {
       console.log('Erro salvar morte:', e.message);
@@ -58,12 +59,14 @@ export default function MortesScreen({ navigation, route }) {
 
   const removerRegistro = async (id) => {
     try {
-      await api.deleteMorte(id); // precisa implementar no backend DELETE /api/mortes/{id}/
+      await api.deleteMorte(id); // DELETE /api/mortes/{id}/
       setHistorico((prev) => prev.filter((r) => r.id !== id));
     } catch (e) {
       Alert.alert('Erro', 'Não foi possível remover o registro.');
     }
   };
+
+  const labelSexo = (s) => (s === 'M' ? 'Macho' : s === 'F' ? 'Fêmea' : 'ND');
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -77,6 +80,18 @@ export default function MortesScreen({ navigation, route }) {
 
       <Text style={styles.label}>Mossa (número do suíno)</Text>
       <TextInput style={styles.input} placeholder="Ex: 123" value={mossa} onChangeText={setMossa} keyboardType="numeric" />
+
+      <Text style={styles.label}>Sexo</Text>
+      <SegmentedButtons
+        value={sexo}
+        onValueChange={setSexo}
+        buttons={[
+          { value: 'M', label: 'Macho' },
+          { value: 'F', label: 'Fêmea' },
+          { value: 'ND', label: 'ND' },
+        ]}
+        style={{ marginBottom: 12 }}
+      />
 
       <TouchableOpacity style={styles.btn} onPress={registrarMorte}>
         <Text style={styles.btnText}>Registrar Morte</Text>
@@ -92,6 +107,7 @@ export default function MortesScreen({ navigation, route }) {
             <Text style={styles.histTitle}>Mossa #{item.mossa}</Text>
             <Text style={styles.histLine}>Data: {item.data_morte}</Text>
             <Text style={styles.histLine}>Causa: {item.causa}</Text>
+            <Text style={styles.histLine}>Sexo: {labelSexo(item.sexo)}</Text>
 
             <TouchableOpacity style={styles.btnSmall} onPress={() => removerRegistro(item.id)}>
               <Text style={styles.btnSmallText}>Remover</Text>
