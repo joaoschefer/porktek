@@ -1,3 +1,4 @@
+// src/screens/LoteAtualScreen.js
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Card, Button, Divider, Chip } from 'react-native-paper';
@@ -6,6 +7,13 @@ import { api } from '../services/api';
 
 const PRIMARY = '#0A84FF';
 const PRIMARY_DARK = '#085DB8';
+
+const fmtBR = (iso) => {
+  if (!iso) return '-';
+  const d = new Date(iso);
+  if (isNaN(d)) return String(iso);
+  return d.toLocaleDateString('pt-BR');
+};
 
 export default function LoteAtualScreen({ navigation }) {
   const [resumo, setResumo] = useState(null);
@@ -41,20 +49,57 @@ export default function LoteAtualScreen({ navigation }) {
           />
 
           {resumo ? (
-            <Card.Content style={styles.chipsRow}>
-              <Chip style={styles.chip} icon="pig">
-                Suínos: {resumo.suinos_em_andamento}
-              </Chip>
-              <Chip style={styles.chip} icon="calendar">
-                {resumo.status}
-              </Chip>
-              <Chip style={styles.chip} icon="scale-bathroom">
-                Últ. peso médio: {resumo.peso_medio_ult_chegada ?? '-'}
-              </Chip>
-              <Chip style={styles.chip} icon="skull">
-                Mortes: {resumo.total_mortes}
-              </Chip>
-            </Card.Content>
+            <View>
+              <Card.Content style={styles.chipsRow}>
+                <Chip style={styles.chip} icon="pig">
+                  Suínos: {resumo.suinos_em_andamento}
+                </Chip>
+                <Chip style={styles.chip} icon="calendar">
+                  {resumo.status}
+                </Chip>
+                <Chip style={styles.chip} icon="scale-bathroom">
+                  Últ. peso médio: {resumo.peso_medio_ult_chegada ?? '-'}
+                </Chip>
+                <Chip style={styles.chip} icon="skull">
+                  Mortes: {resumo.total_mortes}
+                </Chip>
+              </Card.Content>
+
+              {/* --- NOVO BLOCO DE MÉTRICAS --- */}
+              <Divider style={{ marginVertical: 10 }} />
+              <Card.Content style={{ gap: 6 }}>
+                <Text style={styles.metric}>
+                  Idade média: <Text style={styles.value}>{resumo.idade_media_dias ?? '-'} dias</Text>
+                </Text>
+                <Text style={styles.metric}>
+                  Consumo total ração: <Text style={styles.value}>{resumo.consumo_total_racao ?? 0}</Text> kg
+                </Text>
+                <Text style={styles.metric}>
+                  Ganho de peso/dia: <Text style={styles.value}>{resumo.ganho_peso_por_dia ?? '-'} kg/dia</Text>
+                </Text>
+                <Text style={styles.metric}>
+                  Consumo por dia: <Text style={styles.value}>{resumo.consumo_por_dia ?? '-'}</Text> kg/dia
+                </Text>
+                <Text style={styles.metric}>
+                  Consumo por dia/cabeça: <Text style={styles.value}>{resumo.consumo_por_dia_por_cabeca ?? '-'}</Text> kg/dia/cab
+                </Text>
+                <Text style={styles.metric}>
+                  Conversão alimentar: <Text style={styles.value}>{resumo.conversao_alimentar ?? '-'}</Text>
+                </Text>
+                <Text style={styles.metric}>
+                  % Mortalidade: <Text style={[styles.value, { color: '#B00020' }]}>{resumo.percentual_mortalidade ?? 0}%</Text>
+                </Text>
+                <Text style={styles.metric}>
+                  Dias de alojamento: <Text style={styles.value}>{resumo.dias_alojamento ?? 0}</Text>
+                </Text>
+                <Text style={styles.metric}>
+                  Data média de chegada: <Text style={styles.value}>{fmtBR(resumo.data_media_chegada)}</Text>
+                </Text>
+                <Text style={styles.metric}>
+                  Data média de saída: <Text style={styles.value}>{fmtBR(resumo.data_media_saida)}</Text>
+                </Text>
+              </Card.Content>
+            </View>
           ) : null}
 
           {loading ? <Text style={{ margin: 8 }}>Atualizando…</Text> : null}
@@ -142,4 +187,7 @@ const styles = StyleSheet.create({
   btn: { flexBasis: '48%', borderRadius: 12, backgroundColor: PRIMARY },
   btnContent: { height: 56 },
   btnLabel: { fontWeight: '700', color: '#fff' },
+
+  metric: { color: '#2C3E50' },
+  value: { fontWeight: '700', color: '#2C3E50' },
 });

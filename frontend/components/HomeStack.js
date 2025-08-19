@@ -8,7 +8,7 @@ import LoteFinalizadoScreen from '../screens/LoteFinalizadoScreen';
 import ChegadaScreen from '../screens/ChegadaScreen';
 import MortesScreen from '../screens/MortesScreen';
 import ObsGeraisScreen from '../screens/ObsGeraisScreen';
-import RacaoScreen from '../screens/RacaoScreens';
+import RacaoScreen from '../screens/RacaoScreen';
 import SaidaScreen from '../screens/SaidaScreen';
 
 const Stack = createNativeStackNavigator();
