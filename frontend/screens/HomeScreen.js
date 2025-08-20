@@ -90,32 +90,6 @@ export default function HomeScreen() {
     }
   };
 
-  // (Opcional) Excluir todos os finalizados visíveis
-  const excluirTodosFinalizados = async () => {
-    if (finalizados.length === 0) return;
-    Alert.alert(
-      'Excluir todos',
-      'Tem certeza que deseja excluir TODOS os lotes finalizados listados?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Excluir todos',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const ids = finalizados.map((f) => f.id);
-              await api.deleteLotesFinalizados(ids);
-              setFinalizados([]);
-              setSnack({ visible: true, msg: 'Todos os lotes finalizados foram excluídos.' });
-            } catch (e) {
-              setSnack({ visible: true, msg: 'Falha ao excluir em lote.' });
-            }
-          },
-        },
-      ]
-    );
-  };
-
   const renderLoteFinalizado = ({ item }) => (
     <Card
       style={styles.card}
@@ -140,10 +114,6 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <Appbar.Header style={styles.appBar}>
         <Appbar.Content title="Início" titleStyle={styles.appBarTitle} />
-        {/* (Opcional) Botão para excluir todos */}
-        {finalizados.length > 0 ? (
-          <Appbar.Action icon="delete-sweep" onPress={excluirTodosFinalizados} />
-        ) : null}
       </Appbar.Header>
 
       <View style={styles.content}>

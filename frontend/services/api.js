@@ -55,8 +55,6 @@ export const api = {
 
   //deletar lote
   deleteLote: (id) => req(`/lotes/${id}/`, { method: 'DELETE' }),
-  deleteLotesFinalizados: (ids) =>
-    req(`/lotes/finalizados/excluir/`, { method: 'POST', body: JSON.stringify({ ids }) }),
 
   //racao
   getRacoes:   (loteId) => req(`/racoes/?lote=${encodeURIComponent(loteId)}`),

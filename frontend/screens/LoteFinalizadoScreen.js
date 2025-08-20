@@ -1,6 +1,6 @@
 // src/screens/LoteFinalizadoScreen.js
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, FlatList } from 'react-native';
 import { Card, Divider, Chip } from 'react-native-paper';
 import { api } from '../services/api';
 
@@ -19,7 +19,7 @@ const toBR = (yyyy_mm_dd) => {
 };
 
 export default function LoteFinalizadoScreen({ route }) {
-  const { lote } = route.params || {};   // veio da Home via finalizados
+  const { lote } = route.params || {};
   const loteId = Number(lote?.id);
 
   const [resumo, setResumo] = useState(null);
@@ -34,30 +34,22 @@ export default function LoteFinalizadoScreen({ route }) {
       setLoading(true);
 
       const results = await Promise.allSettled([
-        api.getResumoLote(loteId),
-        api.getChegadas(loteId),
-        api.getMortes(loteId),
-        api.getObservacoes(loteId),
+        api.getResumoLote(loteId),   // GET /lotes/{id}/resumo/
+        api.getChegadas(loteId),     // GET /chegadas/?lote=ID
+        api.getMortes(loteId),       // GET /mortes/?lote=ID
+        api.getObservacoes(loteId),  // GET /observacoes/?lote=ID
       ]);
 
       const [r, cs, ms, os] = results;
 
-      if (r.status === 'fulfilled') setResumo(r.value);
-      else { setResumo(null); console.log('Resumo falhou:', r.reason?.message); }
-
-      if (cs.status === 'fulfilled') setChegadas(cs.value);
-      else { setChegadas([]); console.log('Chegadas falhou:', cs.reason?.message); }
-
-      if (ms.status === 'fulfilled') setMortes(ms.value);
-      else { setMortes([]); console.log('Mortes falhou:', ms.reason?.message); }
-
-      if (os.status === 'fulfilled') setObservacoes(os.value);
-      else { setObservacoes([]); console.log('Obs falhou:', os.reason?.message); }
+      setResumo(r.status === 'fulfilled' ? r.value : null);
+      setChegadas(cs.status === 'fulfilled' ? cs.value : []);
+      setMortes(ms.status === 'fulfilled' ? ms.value : []);
+      setObservacoes(os.status === 'fulfilled' ? os.value : []);
     } finally {
       setLoading(false);
     }
   }, [loteId]);
-
 
   useEffect(() => { carregar(); }, [carregar]);
 
@@ -101,7 +93,7 @@ export default function LoteFinalizadoScreen({ route }) {
 
         <Divider style={{ marginVertical: 6 }} />
 
-        {/* --- métricas novas --- */}
+        {/* métricas novas */}
         <Text style={styles.line}>
           Idade média: <Text style={styles.value}>{resumo?.idade_media_dias ?? '-'} dias</Text>
         </Text>
@@ -136,7 +128,6 @@ export default function LoteFinalizadoScreen({ route }) {
     </Card>
   );
 
-
   const ChegadasCard = () => (
     <Card style={styles.card} elevation={1}>
       <Card.Title title={`Chegadas (${chegadas.length})`} />
@@ -147,7 +138,7 @@ export default function LoteFinalizadoScreen({ route }) {
           chegadas.map((c) => (
             <View key={c.id} style={styles.itemRow}>
               <Text style={styles.itemTitle}>Data: {toBR(c.data)}</Text>
-              <Text style={styles.itemLine}>Qtd: {c.quantidade} · Peso médio: {c.peso_medio} kg</Text>
+              <Text style={styles.itemLine}>Qtd: {c.quantidade} · Peso médio: {c.peso_medio} kg{c.peso_total ? ` · Peso total: ${c.peso_total} kg` : ''}</Text>
               <Text style={styles.itemLine}>Origem: {c.origem}</Text>
               <Text style={styles.itemLine}>Responsável: {c.responsavel}</Text>
               {c.observacoes ? <Text style={styles.itemLine}>Obs: {c.observacoes}</Text> : null}
@@ -159,25 +150,79 @@ export default function LoteFinalizadoScreen({ route }) {
     </Card>
   );
 
-  const MortesCard = () => (
-    <Card style={styles.card} elevation={1}>
-      <Card.Title title={`Mortes (${mortes.length})`} />
-      <Card.Content style={{ gap: 8 }}>
-        {mortes.length === 0 ? (
-          <Text style={styles.muted}>Nenhum registro de morte.</Text>
-        ) : (
-          mortes.map((m) => (
-            <View key={m.id} style={styles.itemRow}>
-              <Text style={styles.itemTitle}>Data: {toBR(m.data_morte)}</Text>
-              <Text style={styles.itemLine}>Causa: {m.causa}</Text>
-              <Text style={styles.itemLine}>Mossa: {m.mossa}</Text>
-              <Divider style={{ marginTop: 6 }} />
-            </View>
-          ))
-        )}
-      </Card.Content>
-    </Card>
-  );
+  // === Novo MortesCard (carrossel horizontal + resumo) ===
+  const MortesCard = () => {
+    const total = mortes.length;
+    const porSexo = mortes.reduce(
+      (acc, m) => {
+        const s = (m.sexo || 'ND').toUpperCase();
+        acc[s] = (acc[s] || 0) + 1;
+        return acc;
+      },
+      { M: 0, F: 0, ND: 0 }
+    );
+
+    const causaMaisComum = (() => {
+      const freq = {};
+      mortes.forEach(m => {
+        const c = (m.causa || '—').trim();
+        freq[c] = (freq[c] || 0) + 1;
+      });
+      let maxCausa = null, max = 0;
+      Object.entries(freq).forEach(([c, n]) => {
+        if (n > max) { max = n; maxCausa = c; }
+      });
+      return total > 0 ? `${maxCausa} (${max})` : '—';
+    })();
+
+    return (
+      <Card style={styles.card} elevation={1}>
+        <Card.Title title="Mortes" subtitle={`Total: ${total}`} />
+        <Card.Content>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+            <Chip compact icon="counter">M: {porSexo.M}</Chip>
+            <Chip compact icon="counter">F: {porSexo.F}</Chip>
+            <Chip compact icon="counter">ND: {porSexo.ND}</Chip>
+            <Chip compact icon="alert-octagon">Causa + comum: {causaMaisComum}</Chip>
+          </View>
+
+          {total === 0 ? (
+            <Text style={styles.muted}>Nenhum registro de morte.</Text>
+          ) : (
+            <FlatList
+              horizontal
+              data={mortes}
+              keyExtractor={(item) => String(item.id)}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingRight: 8 }}
+              snapToAlignment="start"
+              decelerationRate="fast"
+              snapToInterval={260} // largura do card + margem
+              renderItem={({ item }) => (
+                <View style={styles.morteCard}>
+                  <Text style={styles.morteTitle}>Data: {toBR(item.data_morte)}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                    <Chip compact icon="gender-male-female" style={{ backgroundColor: '#fff' }}>
+                      {(item.sexo || 'ND').toUpperCase()}
+                    </Chip>
+                    {item.mossa ? (
+                      <Chip compact icon="tag" style={{ backgroundColor: '#fff' }}>
+                        Mossa #{item.mossa}
+                      </Chip>
+                    ) : null}
+                  </View>
+                  <Text style={styles.itemLine}>Causa: <Text style={styles.value}>{item.causa || '—'}</Text></Text>
+                  {item.observacoes ? (
+                    <Text style={styles.itemLine}>Obs: <Text style={styles.value}>{item.observacoes}</Text></Text>
+                  ) : null}
+                </View>
+              )}
+            />
+          )}
+        </Card.Content>
+      </Card>
+    );
+  };
 
   const ObservacoesCard = () => (
     <Card style={styles.card} elevation={1}>
@@ -226,10 +271,23 @@ const styles = StyleSheet.create({
   chip: { backgroundColor: '#fff' },
 
   line: { fontSize: 15, color: '#2C3E50' },
-  value: { fontWeight: '700' },
+  value: { fontWeight: '700', color: '#2C3E50' },
   muted: { color: '#7f8c8d' },
 
   itemRow: { marginBottom: 8 },
   itemTitle: { fontWeight: '700', color: '#2C3E50' },
   itemLine: { color: '#2C3E50' },
+
+  // estilos do carrossel de mortes
+  morteCard: {
+    width: 244,                 // 244 + marginRight 16 ≈ snapToInterval 260
+    marginRight: 16,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 12,
+    elevation: 1,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#eee',
+  },
+  morteTitle: { fontWeight: '700', color: '#2C3E50', marginBottom: 6 },
 });

@@ -1,5 +1,5 @@
 # porktekapp/views.py
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from django.db.models import Sum
 from django.utils import timezone
@@ -47,6 +47,23 @@ def _safe_div(num, den, digits=None):
         return None
     val = n / d
     return round(val, digits) if isinstance(digits, int) else val
+
+def _to_date(v):
+    """Converte v para date. Aceita datetime, date ou ISO 'YYYY-MM-DD'."""
+    if v is None:
+        return None
+    if isinstance(v, date) and not isinstance(v, datetime):
+        return v
+    if isinstance(v, datetime):
+        return v.date()
+    if isinstance(v, str):
+        try:
+            y, m, d = [int(x) for x in v.split('-')]
+            return date(y, m, d)
+        except Exception:
+            return None
+    return None
+    
 
 # -------- Lotes --------
 
@@ -110,7 +127,7 @@ class LoteViewSet(viewsets.ModelViewSet):
         hoje = timezone.localdate()
         if data_media_chegada:
             # se finalizado, use a data média de saída (ou finalizado_em) como limite superior
-            limite = data_media_saida or (lote.finalizado_em or hoje) if not lote.ativo else hoje
+            limite = (data_media_saida or _to_date(lote.finalizado_em) or hoje) if not lote.ativo else hoje
             dias_alojamento = max((limite - data_media_chegada).days, 0)
         else:
             dias_alojamento = 0
@@ -192,7 +209,7 @@ class LoteViewSet(viewsets.ModelViewSet):
         if not lote:
             return response.Response({'detail': 'Nenhum lote ativo.'}, status=status.HTTP_404_NOT_FOUND)
         lote.ativo = False
-        lote.finalizado_em = timezone.localdate()
+        lote.finalizado_em = timezone.now()
         lote.save(update_fields=['ativo', 'finalizado_em'])
         # retorna apenas o lote; o app já chama /lotes/ativo/resumo depois (que dará 404 e está tratado no frontend)
         return response.Response(LoteSerializer(lote).data)
@@ -204,14 +221,6 @@ class LoteViewSet(viewsets.ModelViewSet):
                                      status=status.HTTP_400_BAD_REQUEST)
         return super().destroy(request, *args, **kwargs)
 
-    @decorators.action(detail=False, methods=['post'], url_path='finalizados/excluir')
-    def excluir_finalizados(self, request):
-        ids = request.data.get('ids', [])
-        if not isinstance(ids, list) or not ids:
-            return response.Response({'detail': 'Envie "ids": [..].'}, status=status.HTTP_400_BAD_REQUEST)
-        qs = Lote.objects.filter(id__in=ids, ativo=False)
-        deleted, _ = qs.delete()
-        return response.Response({'deleted': deleted}, status=status.HTTP_200_OK)
 
 # -------- Chegadas --------
 
