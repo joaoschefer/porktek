@@ -92,16 +92,50 @@ export default function LoteFinalizadoScreen({ route }) {
         <Text style={styles.line}>
           Mortes: <Text style={[styles.value, { color: '#B00020' }]}>{resumo?.total_mortes ?? 0}</Text>
         </Text>
-        <Divider style={{ marginVertical: 6 }} />
         <Text style={styles.line}>
           Suínos final: <Text style={styles.value}>{resumo?.suinos_em_andamento ?? '-'}</Text>
         </Text>
         <Text style={styles.line}>
           Último peso médio registrado: <Text style={styles.value}>{resumo?.peso_medio_ult_chegada ?? '-'}</Text>
         </Text>
+
+        <Divider style={{ marginVertical: 6 }} />
+
+        {/* --- métricas novas --- */}
+        <Text style={styles.line}>
+          Idade média: <Text style={styles.value}>{resumo?.idade_media_dias ?? '-'} dias</Text>
+        </Text>
+        <Text style={styles.line}>
+          Consumo total ração: <Text style={styles.value}>{resumo?.consumo_total_racao ?? 0}</Text> kg
+        </Text>
+        <Text style={styles.line}>
+          Ganho de peso/dia: <Text style={styles.value}>{resumo?.ganho_peso_por_dia ?? '-'}</Text> kg/dia
+        </Text>
+        <Text style={styles.line}>
+          Consumo por dia: <Text style={styles.value}>{resumo?.consumo_por_dia ?? '-'}</Text> kg/dia
+        </Text>
+        <Text style={styles.line}>
+          Consumo por dia/cabeça: <Text style={styles.value}>{resumo?.consumo_por_dia_por_cabeca ?? '-'}</Text> kg/dia/cab
+        </Text>
+        <Text style={styles.line}>
+          Conversão alimentar: <Text style={styles.value}>{resumo?.conversao_alimentar ?? '-'}</Text>
+        </Text>
+        <Text style={styles.line}>
+          % Mortalidade: <Text style={[styles.value, { color: '#B00020' }]}>{resumo?.percentual_mortalidade ?? 0}%</Text>
+        </Text>
+        <Text style={styles.line}>
+          Dias de alojamento: <Text style={styles.value}>{resumo?.dias_alojamento ?? 0}</Text>
+        </Text>
+        <Text style={styles.line}>
+          Data média de chegada: <Text style={styles.value}>{fmtBR(resumo?.data_media_chegada)}</Text>
+        </Text>
+        <Text style={styles.line}>
+          Data média de saída: <Text style={styles.value}>{fmtBR(resumo?.data_media_saida)}</Text>
+        </Text>
       </Card.Content>
     </Card>
   );
+
 
   const ChegadasCard = () => (
     <Card style={styles.card} elevation={1}>

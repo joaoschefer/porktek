@@ -12,8 +12,8 @@ export default function ChegadaScreen({ navigation, route }) {
   // ---- Form states ----
   const [data, setData] = useState('');
   const [quantidade, setQuantidade] = useState('');
-  const [pesoMedio, setPesoMedio] = useState('');
-  const [pesoTotal, setPesoTotal] = useState('');        // 👈 NOVO
+  const [pesoMedio, setPesoMedio] = useState('');      // calculado automaticamente
+  const [pesoTotal, setPesoTotal] = useState('');
   const [origem, setOrigem] = useState('');
   const [responsavel, setResponsavel] = useState('');
   const [observacoes, setObservacoes] = useState('');
@@ -41,7 +41,8 @@ export default function ChegadaScreen({ navigation, route }) {
     return Number.isFinite(n) ? n : NaN;
   };
   const toFloat = (v) => {
-    const normalized = String(v).replace(',', '.').replace(/[^0-9.]/g, '');
+    // aceita "1.234,56" e "1234.56"
+    const normalized = String(v).replace(/\./g, '').replace(',', '.').replace(/[^0-9.]/g, '');
     const n = parseFloat(normalized);
     return Number.isFinite(n) ? n : NaN;
   };
@@ -64,39 +65,44 @@ export default function ChegadaScreen({ navigation, route }) {
     return `${d.padStart(2,'0')}/${m.padStart(2,'0')}/${y}`;
   };
 
+  // ---- Cálculo automático do peso médio ----
+  const calcPesoMedio = (qStr, totStr) => {
+    const q = toInt(qStr);
+    const t = toFloat(totStr);
+    if (Number.isFinite(q) && q > 0 && Number.isFinite(t) && t > 0) {
+      return (t / q).toFixed(3);
+    }
+    return '';
+  };
+
+  // Recalcula SEMPRE que quantidade ou pesoTotal mudarem
+  useEffect(() => {
+    setPesoMedio(calcPesoMedio(quantidade, pesoTotal));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quantidade, pesoTotal]);
+
   // ---- Validações ----
   const qnt = toInt(quantidade);
-  const pMed = toFloat(pesoMedio);
+  const pMed = toFloat(pesoMedio);  // já vem calculado
   const pTot = toFloat(pesoTotal);
-
-  // Auto-sugerir peso médio se der pra calcular (peso_total / quantidade)
-  useEffect(() => {
-    if ((!pesoMedio || !Number.isFinite(pMed)) && Number.isFinite(qnt) && qnt > 0 && Number.isFinite(pTot) && pTot > 0) {
-      const calc = (pTot / qnt).toFixed(3);
-      setPesoMedio(String(calc));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [quantidade, pesoTotal]); // recalcula quando mudar qnt ou total
 
   const errors = {
     data: data.length > 0 && !isValidDate(data),
     quantidade: quantidade.length > 0 && (!Number.isFinite(qnt) || qnt <= 0),
+    pesoTotal: pesoTotal.length > 0 && (!Number.isFinite(pTot) || pTot <= 0), // total agora faz parte do cálculo
     pesoMedio: pesoMedio.length > 0 && (!Number.isFinite(pMed) || pMed <= 0),
-    // pesoTotal é opcional; se quiser tornar obrigatório, adicione regra:
-    // pesoTotal: pesoTotal.length > 0 && (!Number.isFinite(pTot) || pTot <= 0),
   };
 
   const formOk = useMemo(() => {
     return (
       isValidDate(data) &&
       Number.isFinite(qnt) && qnt > 0 &&
+      Number.isFinite(pTot) && pTot > 0 &&
       Number.isFinite(pMed) && pMed > 0 &&
       origem.trim().length > 0 &&
       responsavel.trim().length > 0
-      // Se quiser tornar o total obrigatório, acrescente:
-      // && Number.isFinite(pTot) && pTot > 0
     );
-  }, [data, qnt, pMed, origem, responsavel]);
+  }, [data, qnt, pTot, pMed, origem, responsavel]);
 
   // ---- Carregar histórico do backend ----
   useEffect(() => {
@@ -120,7 +126,7 @@ export default function ChegadaScreen({ navigation, route }) {
     setData('');
     setQuantidade('');
     setPesoMedio('');
-    setPesoTotal('');   // 👈 limpa
+    setPesoTotal('');
     setOrigem('');
     setResponsavel('');
     setObservacoes('');
@@ -139,7 +145,7 @@ export default function ChegadaScreen({ navigation, route }) {
         data: toISO(data),
         quantidade: qnt,
         peso_medio: pMed,
-        peso_total: Number.isFinite(pTot) ? pTot : null,   // 👈 envia se numérico
+        peso_total: pTot,
         origem: origem.trim(),
         responsavel: responsavel.trim(),
         observacoes: observacoes.trim(),
@@ -188,7 +194,7 @@ export default function ChegadaScreen({ navigation, route }) {
               <TextInput
                 label="Quantidade de Suínos"
                 value={quantidade}
-                onChangeText={setQuantidade}
+                onChangeText={(v) => setQuantidade(v)}
                 keyboardType="number-pad"
                 mode="outlined"
                 error={errors.quantidade}
@@ -200,25 +206,25 @@ export default function ChegadaScreen({ navigation, route }) {
               <TextInput
                 label="Peso total da carga (kg)"
                 value={pesoTotal}
-                onChangeText={setPesoTotal}
+                onChangeText={(v) => setPesoTotal(v)}
                 keyboardType="decimal-pad"
                 mode="outlined"
+                error={errors.pesoTotal}
                 right={<TextInput.Affix text="kg" />}
                 style={styles.mt12}
               />
-              {/* Se quiser validar, adicione HelperText aqui */}
+              <HelperText type="error" visible={errors.pesoTotal}>Informe um valor &gt; 0 (ex.: 1234,5).</HelperText>
 
               <TextInput
                 label="Peso Médio (kg)"
                 value={pesoMedio}
-                onChangeText={setPesoMedio}
-                keyboardType="decimal-pad"
+                editable={false}                 // calculado automaticamente
                 mode="outlined"
                 error={errors.pesoMedio}
                 right={<TextInput.Affix text="kg" />}
-                style={styles.mt12}
+                style={[styles.mt12, { backgroundColor: '#f3f6fa' }]}
               />
-              <HelperText type="error" visible={errors.pesoMedio}>Informe um valor numérico &gt; 0. (Ex: 22.5)</HelperText>
+              <HelperText type="error" visible={errors.pesoMedio}>Peso médio inválido.</HelperText>
 
               <TextInput label="Origem" value={origem} onChangeText={setOrigem} mode="outlined" style={styles.mt12} />
               <TextInput label="Responsável pela Entrega" value={responsavel} onChangeText={setResponsavel} mode="outlined" style={styles.mt12} />

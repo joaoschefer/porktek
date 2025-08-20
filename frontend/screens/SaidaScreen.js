@@ -38,7 +38,7 @@ export default function SaidaScreen({ navigation, route }) {
   // Form
   const [quantidade, setQuantidade] = useState('');
   const [pesoTotal, setPesoTotal] = useState('');
-  const [pesoMedio, setPesoMedio] = useState('');
+  const [pesoMedio, setPesoMedio] = useState(''); // calculado automaticamente
   const [data, setData] = useState('');
   const [observacoes, setObservacoes] = useState('');
 
@@ -56,7 +56,11 @@ export default function SaidaScreen({ navigation, route }) {
     return Number.isFinite(n) ? n : NaN;
   };
   const toFloat = (v) => {
-    const normalized = String(v).replace(',', '.').replace(/[^0-9.]/g, '');
+    // aceita "1.234,56" e "1234.56"
+    const normalized = String(v)
+      .replace(/\./g, '')        // remove separador de milhar
+      .replace(',', '.')         // troca vírgula por ponto
+      .replace(/[^0-9.]/g, '');  // mantém apenas dígitos e ponto
     const n = parseFloat(normalized);
     return Number.isFinite(n) ? n : NaN;
   };
@@ -65,19 +69,20 @@ export default function SaidaScreen({ navigation, route }) {
   const pTot = useMemo(() => toFloat(pesoTotal), [pesoTotal]);
   const pMed = useMemo(() => toFloat(pesoMedio), [pesoMedio]);
 
-  // Auto-sugestão de peso médio (se possível)
+  // Peso médio sempre calculado a partir de peso total / quantidade
   useEffect(() => {
-    if (!Number.isFinite(pMed) && Number.isFinite(qnt) && qnt > 0 && Number.isFinite(pTot) && pTot > 0) {
-      const calc = (pTot / qnt).toFixed(3);
-      setPesoMedio(String(calc));
+    if (Number.isFinite(qnt) && qnt > 0 && Number.isFinite(pTot) && pTot > 0) {
+      setPesoMedio((pTot / qnt).toFixed(3));
+    } else {
+      setPesoMedio('');
     }
-  }, [qnt, pTot]); // atualiza sugestão quando quantidade ou total mudam
+  }, [qnt, pTot]);
 
   const errors = {
     data: data.length > 0 && !isValidDateBR(data),
     quantidade: quantidade.length > 0 && (!Number.isFinite(qnt) || qnt <= 0),
     pesoTotal: pesoTotal.length > 0 && (!Number.isFinite(pTot) || pTot <= 0),
-    pesoMedio: pesoMedio.length > 0 && (!Number.isFinite(pMed) || pMed <= 0),
+    pesoMedio: pesoMedio.length > 0 && (!Number.isFinite(pMed) || pMed <= 0), // deve ficar ok pelo cálculo automático
   };
 
   const formOk = useMemo(() => {
@@ -119,7 +124,7 @@ export default function SaidaScreen({ navigation, route }) {
         lote: lote.id,
         quantidade: qnt,
         peso_total: pTot,
-        peso_medio: pMed,
+        peso_medio: pMed,              // já calculado
         data: toISO(data),
         observacoes: observacoes.trim(),
       };
@@ -168,17 +173,17 @@ export default function SaidaScreen({ navigation, route }) {
               mode="outlined"
               style={styles.mt12}
             />
-            <HelperText type="error" visible={errors.pesoTotal}>Informe um valor &gt; 0 (ex.: 1234.5).</HelperText>
+            <HelperText type="error" visible={errors.pesoTotal}>Informe um valor &gt; 0 (ex.: 1.234,5).</HelperText>
 
             <TextInput
               label="Peso médio (kg)"
               value={pesoMedio}
-              onChangeText={setPesoMedio}
-              keyboardType="decimal-pad"
+              editable={false}               // calculado automaticamente
               mode="outlined"
-              style={styles.mt12}
+              right={<TextInput.Affix text="kg" />}
+              style={[styles.mt12, { backgroundColor: '#f3f6fa' }]}
             />
-            <HelperText type="error" visible={errors.pesoMedio}>Informe um valor &gt; 0 (ex.: 28.7).</HelperText>
+            <HelperText type="error" visible={errors.pesoMedio}>Peso médio inválido.</HelperText>
 
             <TextInput
               label="Data (DD/MM/AAAA)"
