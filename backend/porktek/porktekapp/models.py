@@ -16,6 +16,7 @@ class Chegada(models.Model):
     peso_medio = models.FloatField()
     peso_total = models.FloatField(null=True, blank=True)
     origem = models.CharField(max_length=120)
+    idade_media_dias = models.PositiveIntegerField(null=True, blank=True)
     responsavel = models.CharField(max_length=120)
     observacoes = models.TextField(blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)

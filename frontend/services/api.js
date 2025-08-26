@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 
 const ANDROID_EMULATOR = 'http://10.0.2.2:8000';
 const LOCALHOST        = 'http://127.0.0.1:8000';
-const MACHINE_IP       = 'http://192.168.0.10:8000'; // ajuste para seu IP se for dispositivo físico
+const MACHINE_IP       = 'http://192.168.0.5:8000'; // ajuste para seu IP se for dispositivo físico
 
 const BASE_URL =
   __DEV__

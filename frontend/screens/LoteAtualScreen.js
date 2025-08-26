@@ -58,14 +58,14 @@ export default function LoteAtualScreen({ navigation }) {
                   {resumo.status}
                 </Chip>
                 <Chip style={styles.chip} icon="scale-bathroom">
-                  Últ. peso médio: {resumo.peso_medio_ult_chegada ?? '-'}
+                  Peso médio chegadas: {resumo.peso_medio_total_chegada ?? '-'}
                 </Chip>
                 <Chip style={styles.chip} icon="skull">
                   Mortes: {resumo.total_mortes}
                 </Chip>
               </Card.Content>
 
-              {/* --- NOVO BLOCO DE MÉTRICAS --- */}
+              {/* --- MÉTRICAS --- */}
               <Divider style={{ marginVertical: 10 }} />
               <Card.Content style={{ gap: 6 }}>
                 <Text style={styles.metric}>
@@ -75,7 +75,7 @@ export default function LoteAtualScreen({ navigation }) {
                   Consumo total ração: <Text style={styles.value}>{resumo.consumo_total_racao ?? 0}</Text> kg
                 </Text>
                 <Text style={styles.metric}>
-                  Ganho de peso/dia: <Text style={styles.value}>{resumo.ganho_peso_por_dia ?? '-'} kg/dia</Text>
+                  Ganho de peso/dia: <Text style={styles.value}>{resumo.ganho_peso_por_dia ?? '-'}</Text> kg/dia
                 </Text>
                 <Text style={styles.metric}>
                   Consumo por dia: <Text style={styles.value}>{resumo.consumo_por_dia ?? '-'}</Text> kg/dia

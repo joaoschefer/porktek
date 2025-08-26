@@ -63,7 +63,7 @@ def _to_date(v):
         except Exception:
             return None
     return None
-    
+
 
 # -------- Lotes --------
 
@@ -79,24 +79,30 @@ class LoteViewSet(viewsets.ModelViewSet):
 
         suinos_atuais = max(total_chegadas - total_mortes - total_saidas_qtd, 0)
 
-        # último peso médio de chegada
-        ultima = Chegada.objects.filter(lote=lote).order_by('-data', '-id').first()
-        peso_ult = _f(ultima.peso_medio) if ultima else None
-
         status_txt = 'Em andamento' if lote.ativo else 'Finalizado'
 
-        # ração (kg)
-        consumo_total_racao = _f(RacaoEntrada.objects.filter(lote=lote).aggregate(s=Sum('quantidade'))['s'], 3) or 0.0
-
-        # pesos de chegada/saída
-        peso_chegada_total = 0.0
-        for c in Chegada.objects.filter(lote=lote).values('quantidade', 'peso_medio', 'peso_total'):
+        # ---------------- PESO MÉDIO GERAL DE CHEGADAS ----------------
+        chegadas_vals = Chegada.objects.filter(lote=lote).values('quantidade', 'peso_medio', 'peso_total')
+        soma_peso, soma_q = 0.0, 0
+        for c in chegadas_vals:
             q = int(c['quantidade'] or 0)
+            if q <= 0:
+                continue
             if c['peso_total'] is not None:
-                peso_chegada_total += _f(c['peso_total']) or 0.0
+                soma_peso += _f(c['peso_total']) or 0.0
             else:
-                peso_chegada_total += q * (_f(c['peso_medio']) or 0.0)
+                soma_peso += q * (_f(c['peso_medio']) or 0.0)
+            soma_q += q
+        peso_medio_total_chegada = round(soma_peso / soma_q, 3) if soma_q > 0 else None
+        # ----------------------------------------------------------------
 
+        # ração (kg)
+        consumo_total_racao = _f(
+            RacaoEntrada.objects.filter(lote=lote).aggregate(s=Sum('quantidade'))['s'], 3
+        ) or 0.0
+
+        # pesos de chegada/saída para cálculo de ganho/conversão
+        peso_chegada_total = soma_peso  # já calculado acima com prioridade para peso_total
         peso_saida_total = _f(Saida.objects.filter(lote=lote).aggregate(s=Sum('peso_total'))['s']) or 0.0
         ganho_peso_total = max(peso_saida_total - peso_chegada_total, 0.0)
 
@@ -110,7 +116,10 @@ class LoteViewSet(viewsets.ModelViewSet):
             if ordv and q > 0:
                 soma_w_chegada += ordv * q
                 soma_q_chegada += q
-        data_media_chegada = date.fromordinal(int(round(soma_w_chegada / soma_q_chegada))) if soma_q_chegada > 0 else None
+        data_media_chegada = (
+            date.fromordinal(int(round(soma_w_chegada / soma_q_chegada)))
+            if soma_q_chegada > 0 else None
+        )
 
         # saída
         saidas_dt = Saida.objects.filter(lote=lote).values('data', 'quantidade')
@@ -121,18 +130,21 @@ class LoteViewSet(viewsets.ModelViewSet):
             if ordv and q > 0:
                 soma_w_saida += ordv * q
                 soma_q_saida += q
-        data_media_saida = date.fromordinal(int(round(soma_w_saida / soma_q_saida))) if soma_q_saida > 0 else None
+        data_media_saida = (
+            date.fromordinal(int(round(soma_w_saida / soma_q_saida)))
+            if soma_q_saida > 0 else None
+        )
 
         # dias de alojamento
         hoje = timezone.localdate()
         if data_media_chegada:
-            # se finalizado, use a data média de saída (ou finalizado_em) como limite superior
+            # se finalizado, use a data média de saída (ou finalizado_em) como limite superior; senão, hoje
             limite = (data_media_saida or _to_date(lote.finalizado_em) or hoje) if not lote.ativo else hoje
             dias_alojamento = max((limite - data_media_chegada).days, 0)
         else:
             dias_alojamento = 0
 
-        # idade média (para ativo) — se finalizado, mantém calculada até hoje só para exibição
+        # idade média (para ativo) — opcional manter como diferença até hoje
         idade_media_dias = max((hoje - data_media_chegada).days, 0) if data_media_chegada else 0
 
         # derivados
@@ -152,8 +164,10 @@ class LoteViewSet(viewsets.ModelViewSet):
             'total_chegadas': total_chegadas,
             'total_mortes': total_mortes,
             'suinos_em_andamento': suinos_atuais,
-            'peso_medio_ult_chegada': peso_ult,
             'status': status_txt,
+
+            # novo campo exposto ao frontend
+            'peso_medio_total_chegada': peso_medio_total_chegada,
 
             # métricas novas (sempre números ou None)
             'idade_media_dias': idade_media_dias,
@@ -211,7 +225,6 @@ class LoteViewSet(viewsets.ModelViewSet):
         lote.ativo = False
         lote.finalizado_em = timezone.now()
         lote.save(update_fields=['ativo', 'finalizado_em'])
-        # retorna apenas o lote; o app já chama /lotes/ativo/resumo depois (que dará 404 e está tratado no frontend)
         return response.Response(LoteSerializer(lote).data)
 
     def destroy(self, request, *args, **kwargs):

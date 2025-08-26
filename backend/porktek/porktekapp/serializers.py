@@ -9,7 +9,7 @@ class LoteSerializer(serializers.ModelSerializer):
 class ChegadaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Chegada
-        fields = ['id', 'lote', 'data', 'quantidade', 'peso_medio', 'peso_total', 'origem', 'responsavel', 'observacoes', 'criado_em']
+        fields = ['id', 'lote', 'data', 'quantidade', 'peso_medio', 'peso_total', 'origem', 'idade_media_dias', 'responsavel', 'observacoes', 'criado_em']
 
 class MorteSerializer(serializers.ModelSerializer):
     class Meta:

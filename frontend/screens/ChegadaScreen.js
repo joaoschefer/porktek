@@ -12,8 +12,9 @@ export default function ChegadaScreen({ navigation, route }) {
   // ---- Form states ----
   const [data, setData] = useState('');
   const [quantidade, setQuantidade] = useState('');
-  const [pesoMedio, setPesoMedio] = useState('');      // calculado automaticamente
+  const [pesoMedio, setPesoMedio] = useState('');
   const [pesoTotal, setPesoTotal] = useState('');
+  const [idadeMediaDias, setIdadeMediaDias] = useState(''); // 👈 NOVO
   const [origem, setOrigem] = useState('');
   const [responsavel, setResponsavel] = useState('');
   const [observacoes, setObservacoes] = useState('');
@@ -41,8 +42,7 @@ export default function ChegadaScreen({ navigation, route }) {
     return Number.isFinite(n) ? n : NaN;
   };
   const toFloat = (v) => {
-    // aceita "1.234,56" e "1234.56"
-    const normalized = String(v).replace(/\./g, '').replace(',', '.').replace(/[^0-9.]/g, '');
+    const normalized = String(v).replace(',', '.').replace(/[^0-9.]/g, '');
     const n = parseFloat(normalized);
     return Number.isFinite(n) ? n : NaN;
   };
@@ -65,44 +65,45 @@ export default function ChegadaScreen({ navigation, route }) {
     return `${d.padStart(2,'0')}/${m.padStart(2,'0')}/${y}`;
   };
 
-  // ---- Cálculo automático do peso médio ----
-  const calcPesoMedio = (qStr, totStr) => {
-    const q = toInt(qStr);
-    const t = toFloat(totStr);
-    if (Number.isFinite(q) && q > 0 && Number.isFinite(t) && t > 0) {
-      return (t / q).toFixed(3);
-    }
-    return '';
-  };
-
-  // Recalcula SEMPRE que quantidade ou pesoTotal mudarem
-  useEffect(() => {
-    setPesoMedio(calcPesoMedio(quantidade, pesoTotal));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [quantidade, pesoTotal]);
-
   // ---- Validações ----
   const qnt = toInt(quantidade);
-  const pMed = toFloat(pesoMedio);  // já vem calculado
+  const pMed = toFloat(pesoMedio);
   const pTot = toFloat(pesoTotal);
+  const idade = toInt(idadeMediaDias); // 👈 NOVO (opcional)
+
+  // Auto-sugerir peso médio se der pra calcular (peso_total / quantidade)
+  useEffect(() => {
+    if ((!pesoMedio || !Number.isFinite(pMed)) && Number.isFinite(qnt) && qnt > 0 && Number.isFinite(pTot) && pTot > 0) {
+      // limitar casas para evitar 1.999999 → "2.000"
+      const raw = pTot / qnt;
+      const fixed = Math.round(raw * 1000) / 1000; // 3 casas
+      setPesoMedio(String(fixed));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quantidade, pesoTotal]);
 
   const errors = {
     data: data.length > 0 && !isValidDate(data),
     quantidade: quantidade.length > 0 && (!Number.isFinite(qnt) || qnt <= 0),
-    pesoTotal: pesoTotal.length > 0 && (!Number.isFinite(pTot) || pTot <= 0), // total agora faz parte do cálculo
     pesoMedio: pesoMedio.length > 0 && (!Number.isFinite(pMed) || pMed <= 0),
+    // pesoTotal é opcional; descomente pra tornar obrigatório:
+    // pesoTotal: pesoTotal.length > 0 && (!Number.isFinite(pTot) || pTot <= 0),
+
+    // idade é OPCIONAL; se preenchida, deve ser > 0
+    idade: idadeMediaDias.length > 0 && (!Number.isFinite(idade) || idade <= 0), // 👈 NOVO
   };
 
   const formOk = useMemo(() => {
     return (
       isValidDate(data) &&
       Number.isFinite(qnt) && qnt > 0 &&
-      Number.isFinite(pTot) && pTot > 0 &&
       Number.isFinite(pMed) && pMed > 0 &&
       origem.trim().length > 0 &&
-      responsavel.trim().length > 0
+      responsavel.trim().length > 0 &&
+      // idade é opcional; se quiser tornar obrigatória, adicione: Number.isFinite(idade) && idade > 0
+      true
     );
-  }, [data, qnt, pTot, pMed, origem, responsavel]);
+  }, [data, qnt, pMed, origem, responsavel /*, idade*/]);
 
   // ---- Carregar histórico do backend ----
   useEffect(() => {
@@ -127,6 +128,7 @@ export default function ChegadaScreen({ navigation, route }) {
     setQuantidade('');
     setPesoMedio('');
     setPesoTotal('');
+    setIdadeMediaDias(''); // 👈 NOVO
     setOrigem('');
     setResponsavel('');
     setObservacoes('');
@@ -145,10 +147,12 @@ export default function ChegadaScreen({ navigation, route }) {
         data: toISO(data),
         quantidade: qnt,
         peso_medio: pMed,
-        peso_total: pTot,
+        peso_total: Number.isFinite(pTot) ? pTot : null,
         origem: origem.trim(),
         responsavel: responsavel.trim(),
         observacoes: observacoes.trim(),
+        // 👇 envia se numérico; caso contrário, manda null
+        idade_media_dias: Number.isFinite(idade) ? idade : null,
       };
       const created = await api.postChegada(payload);
 
@@ -194,7 +198,7 @@ export default function ChegadaScreen({ navigation, route }) {
               <TextInput
                 label="Quantidade de Suínos"
                 value={quantidade}
-                onChangeText={(v) => setQuantidade(v)}
+                onChangeText={setQuantidade}
                 keyboardType="number-pad"
                 mode="outlined"
                 error={errors.quantidade}
@@ -206,25 +210,40 @@ export default function ChegadaScreen({ navigation, route }) {
               <TextInput
                 label="Peso total da carga (kg)"
                 value={pesoTotal}
-                onChangeText={(v) => setPesoTotal(v)}
+                onChangeText={setPesoTotal}
                 keyboardType="decimal-pad"
                 mode="outlined"
-                error={errors.pesoTotal}
                 right={<TextInput.Affix text="kg" />}
                 style={styles.mt12}
               />
-              <HelperText type="error" visible={errors.pesoTotal}>Informe um valor &gt; 0 (ex.: 1234,5).</HelperText>
+              {/* Se quiser validar, adicione HelperText aqui */}
 
               <TextInput
                 label="Peso Médio (kg)"
                 value={pesoMedio}
-                editable={false}                 // calculado automaticamente
+                onChangeText={setPesoMedio}
+                keyboardType="decimal-pad"
                 mode="outlined"
                 error={errors.pesoMedio}
                 right={<TextInput.Affix text="kg" />}
-                style={[styles.mt12, { backgroundColor: '#f3f6fa' }]}
+                style={styles.mt12}
               />
-              <HelperText type="error" visible={errors.pesoMedio}>Peso médio inválido.</HelperText>
+              <HelperText type="error" visible={errors.pesoMedio}>Informe um valor numérico &gt; 0. (Ex: 22.5)</HelperText>
+
+              {/* 👇 NOVO CAMPO: Idade média (dias) */}
+              <TextInput
+                label="Idade média no lote (dias)"
+                value={idadeMediaDias}
+                onChangeText={setIdadeMediaDias}
+                keyboardType="number-pad"
+                mode="outlined"
+                right={<TextInput.Affix text="dias" />}
+                style={styles.mt12}
+                error={errors.idade}
+              />
+              <HelperText type="error" visible={errors.idade}>
+                Se informado, deve ser um inteiro &gt; 0.
+              </HelperText>
 
               <TextInput label="Origem" value={origem} onChangeText={setOrigem} mode="outlined" style={styles.mt12} />
               <TextInput label="Responsável pela Entrega" value={responsavel} onChangeText={setResponsavel} mode="outlined" style={styles.mt12} />
@@ -256,7 +275,7 @@ export default function ChegadaScreen({ navigation, route }) {
               <Card key={item.id} style={styles.histItem} mode="contained" elevation={1}>
                 <Card.Title
                   title={`Data: ${toBR(item.data)}`}
-                  subtitle={`Qtd: ${item.quantidade} · Peso médio: ${item.peso_medio} kg${item.peso_total ? ` · Peso total: ${item.peso_total} kg` : ''}`}
+                  subtitle={`Qtd: ${item.quantidade} · Peso médio: ${item.peso_medio} kg${item.peso_total ? ` · Peso total: ${item.peso_total} kg` : ''}${item.idade_media_dias ? ` · Idade média: ${item.idade_media_dias}d` : ''}`}
                   right={(props) => (
                     <IconButton {...props} icon="delete" onPress={() => removerRegistro(item.id)} accessibilityLabel="Remover registro" />
                   )}
