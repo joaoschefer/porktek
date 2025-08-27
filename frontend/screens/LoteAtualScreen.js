@@ -23,6 +23,7 @@ export default function LoteAtualScreen({ navigation }) {
     try {
       setLoading(true);
       const data = await api.getResumoAtivo(); // GET /lotes/ativo/resumo/
+      console.log("RESUMO ATUAL:", data); // 👀 debug
       setResumo(data);
     } catch (e) {
       console.log('Erro ao buscar resumo ativo:', e.message);
@@ -50,29 +51,36 @@ export default function LoteAtualScreen({ navigation }) {
 
           {resumo ? (
             <View>
+              {/* CHIPS DO TOPO */}
               <Card.Content style={styles.chipsRow}>
                 <Chip style={styles.chip} icon="pig">
-                  Suínos: {resumo.suinos_em_andamento}
+                  Suínos: {resumo.suinos_em_andamento ?? '-'}
                 </Chip>
                 <Chip style={styles.chip} icon="calendar">
                   {resumo.status}
                 </Chip>
                 <Chip style={styles.chip} icon="scale-bathroom">
-                  Peso médio chegadas: {resumo.peso_medio_total_chegada ?? '-'}
+                  Peso méd. chegadas: {resumo.peso_medio_chegadas ?? '-'}
                 </Chip>
                 <Chip style={styles.chip} icon="skull">
-                  Mortes: {resumo.total_mortes}
+                  Mortes: {resumo.total_mortes ?? '-'}
                 </Chip>
               </Card.Content>
 
-              {/* --- MÉTRICAS --- */}
+              {/* --- NOVO BLOCO DE MÉTRICAS --- */}
               <Divider style={{ marginVertical: 10 }} />
               <Card.Content style={{ gap: 6 }}>
                 <Text style={styles.metric}>
-                  Idade média: <Text style={styles.value}>{resumo.idade_media_dias ?? '-'} dias</Text>
+                  Dias de alojamento: <Text style={styles.value}>{resumo.dias_alojamento ?? 0}</Text>
                 </Text>
                 <Text style={styles.metric}>
-                  Consumo total ração: <Text style={styles.value}>{resumo.consumo_total_racao ?? 0}</Text> kg
+                  Data média de chegada: <Text style={styles.value}>{fmtBR(resumo.data_media_chegada)}</Text>
+                </Text>
+                <Text style={styles.metric}>
+                  Data média de saída: <Text style={styles.value}>{fmtBR(resumo.data_media_saida)}</Text>
+                </Text>
+                <Text style={styles.metric}>
+                  Consumo total ração: <Text style={styles.value}>{resumo.consumo_total_racao ?? '-'}</Text> kg
                 </Text>
                 <Text style={styles.metric}>
                   Ganho de peso/dia: <Text style={styles.value}>{resumo.ganho_peso_por_dia ?? '-'}</Text> kg/dia
@@ -88,15 +96,6 @@ export default function LoteAtualScreen({ navigation }) {
                 </Text>
                 <Text style={styles.metric}>
                   % Mortalidade: <Text style={[styles.value, { color: '#B00020' }]}>{resumo.percentual_mortalidade ?? 0}%</Text>
-                </Text>
-                <Text style={styles.metric}>
-                  Dias de alojamento: <Text style={styles.value}>{resumo.dias_alojamento ?? 0}</Text>
-                </Text>
-                <Text style={styles.metric}>
-                  Data média de chegada: <Text style={styles.value}>{fmtBR(resumo.data_media_chegada)}</Text>
-                </Text>
-                <Text style={styles.metric}>
-                  Data média de saída: <Text style={styles.value}>{fmtBR(resumo.data_media_saida)}</Text>
                 </Text>
               </Card.Content>
             </View>
@@ -187,7 +186,6 @@ const styles = StyleSheet.create({
   btn: { flexBasis: '48%', borderRadius: 12, backgroundColor: PRIMARY },
   btnContent: { height: 56 },
   btnLabel: { fontWeight: '700', color: '#fff' },
-
   metric: { color: '#2C3E50' },
   value: { fontWeight: '700', color: '#2C3E50' },
 });

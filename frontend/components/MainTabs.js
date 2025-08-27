@@ -4,11 +4,9 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import HomeScreen from '../screens/HomeScreen';
 import HomeStack from './HomeStack';
-
-const CalendarScreen = () => null;
-const SettingsScreen = () => null;
+import CalendarScreen from '../screens/CalendarScreen';
+import SettingsScreen from '../screens/SettingsScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -21,20 +19,18 @@ export default function MainTabs() {
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarIcon: ({ color, size }) => {
-          let iconName;
-
-          if (route.name === 'Início') iconName = 'home';
-          else if (route.name === 'Calendário') iconName = 'calendar-month';
+          let iconName = 'home';
+          if (route.name === 'Calendário') iconName = 'calendar-month';
+          else if (route.name === 'Início') iconName = 'home';
           else if (route.name === 'Config') iconName = 'cog';
-
           return <Icon name={iconName} size={size} color={color} />;
         },
         tabBarActiveTintColor: '#D2691E',
         tabBarInactiveTintColor: 'gray',
         tabBarStyle: {
-          paddingVertical: 8,
-          paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
-          height: 60 + insets.bottom,
+          height: 60 + (insets.bottom || 0),
+          paddingBottom: (insets.bottom || 10),
+          paddingTop: 8,
         },
       })}
     >

@@ -19,7 +19,7 @@ const toBR = (yyyy_mm_dd) => {
 };
 
 export default function LoteFinalizadoScreen({ route }) {
-  const { lote } = route.params || {};
+  const { lote } = route.params || {};   // veio da Home via finalizados
   const loteId = Number(lote?.id);
 
   const [resumo, setResumo] = useState(null);
@@ -38,13 +38,18 @@ export default function LoteFinalizadoScreen({ route }) {
         api.getMortes(loteId),
         api.getObservacoes(loteId),
       ]);
-
       const [r, cs, ms, os] = results;
+      if (r.status === 'fulfilled') setResumo(r.value);
+      else { setResumo(null); console.log('Resumo falhou:', r.reason?.message); }
 
-      if (r.status === 'fulfilled') setResumo(r.value); else setResumo(null);
-      if (cs.status === 'fulfilled') setChegadas(cs.value); else setChegadas([]);
-      if (ms.status === 'fulfilled') setMortes(ms.value); else setMortes([]);
-      if (os.status === 'fulfilled') setObservacoes(os.value); else setObservacoes([]);
+      if (cs.status === 'fulfilled') setChegadas(cs.value);
+      else { setChegadas([]); console.log('Chegadas falhou:', cs.reason?.message); }
+
+      if (ms.status === 'fulfilled') setMortes(ms.value);
+      else { setMortes([]); console.log('Mortes falhou:', ms.reason?.message); }
+
+      if (os.status === 'fulfilled') setObservacoes(os.value);
+      else { setObservacoes([]); console.log('Obs falhou:', os.reason?.message); }
     } finally {
       setLoading(false);
     }
@@ -87,14 +92,12 @@ export default function LoteFinalizadoScreen({ route }) {
           Suínos final: <Text style={styles.value}>{resumo?.suinos_em_andamento ?? '-'}</Text>
         </Text>
         <Text style={styles.line}>
-          Peso médio chegada: <Text style={styles.value}>{resumo?.peso_medio_total_chegada ?? '-'}</Text>
+          Peso médio das chegadas: <Text style={styles.value}>{resumo?.peso_medio_chegadas ?? '-'}</Text> kg
         </Text>
 
         <Divider style={{ marginVertical: 6 }} />
 
-        <Text style={styles.line}>
-          Idade média: <Text style={styles.value}>{resumo?.idade_media_dias ?? '-'} dias</Text>
-        </Text>
+        {/* métricas que não usam idade média */}
         <Text style={styles.line}>
           Consumo total ração: <Text style={styles.value}>{resumo?.consumo_total_racao ?? 0}</Text> kg
         </Text>
@@ -113,6 +116,8 @@ export default function LoteFinalizadoScreen({ route }) {
         <Text style={styles.line}>
           % Mortalidade: <Text style={[styles.value, { color: '#B00020' }]}>{resumo?.percentual_mortalidade ?? 0}%</Text>
         </Text>
+
+        {/* apenas datas e dias, como pedido */}
         <Text style={styles.line}>
           Dias de alojamento: <Text style={styles.value}>{resumo?.dias_alojamento ?? 0}</Text>
         </Text>
@@ -136,7 +141,9 @@ export default function LoteFinalizadoScreen({ route }) {
           chegadas.map((c) => (
             <View key={c.id} style={styles.itemRow}>
               <Text style={styles.itemTitle}>Data: {toBR(c.data)}</Text>
-              <Text style={styles.itemLine}>Qtd: {c.quantidade} · Peso médio: {c.peso_medio} kg</Text>
+              <Text style={styles.itemLine}>
+                Qtd: {c.quantidade} · Peso médio: {c.peso_medio} kg{c.peso_total ? ` · Peso total: ${c.peso_total} kg` : ''}
+              </Text>
               <Text style={styles.itemLine}>Origem: {c.origem}</Text>
               <Text style={styles.itemLine}>Responsável: {c.responsavel}</Text>
               {c.observacoes ? <Text style={styles.itemLine}>Obs: {c.observacoes}</Text> : null}
