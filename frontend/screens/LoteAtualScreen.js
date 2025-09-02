@@ -1,6 +1,6 @@
 // src/screens/LoteAtualScreen.js
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Card, Button, Divider, Chip } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
 import { api } from '../services/api';
@@ -14,6 +14,8 @@ const fmtBR = (iso) => {
   if (isNaN(d)) return String(iso);
   return d.toLocaleDateString('pt-BR');
 };
+const nOrDash = (v, dec = 3) => (v === null || v === undefined ? '-' : Number(v).toFixed(dec));
+const intOrDash = (v) => (v === null || v === undefined ? '-' : String(v));
 
 export default function LoteAtualScreen({ navigation }) {
   const [resumo, setResumo] = useState(null);
@@ -23,7 +25,6 @@ export default function LoteAtualScreen({ navigation }) {
     try {
       setLoading(true);
       const data = await api.getResumoAtivo(); // GET /lotes/ativo/resumo/
-      console.log("RESUMO ATUAL:", data); // 👀 debug
       setResumo(data);
     } catch (e) {
       console.log('Erro ao buscar resumo ativo:', e.message);
@@ -37,9 +38,33 @@ export default function LoteAtualScreen({ navigation }) {
 
   const noLote = !resumo;
 
+  // --------- Derivados "por cabeça" (calculados no front) ---------
+  const {
+    total_chegadas = 0,
+    dias_alojamento = 0,
+    ganho_peso_por_dia = null,
+    consumo_total_racao = null,
+  } = resumo || {};
+
+  const ganhoPorCabeca = useMemo(() => {
+    if (!ganho_peso_por_dia || !dias_alojamento || !total_chegadas) return null;
+    const ganhoTotal = Number(ganho_peso_por_dia) * Number(dias_alojamento);
+    return ganhoTotal / Number(total_chegadas);
+  }, [ganho_peso_por_dia, dias_alojamento, total_chegadas]);
+
+  const ganhoDiaPorCabeca = useMemo(() => {
+    if (!ganho_peso_por_dia || !total_chegadas) return null;
+    return Number(ganho_peso_por_dia) / Number(total_chegadas);
+  }, [ganho_peso_por_dia, total_chegadas]);
+
+  const consumoPorCabeca = useMemo(() => {
+    if (consumo_total_racao == null || !total_chegadas) return null;
+    return Number(consumo_total_racao) / Number(total_chegadas);
+  }, [consumo_total_racao, total_chegadas]);
+
   return (
     <View style={styles.container}>
-      <View style={styles.content}>
+      <ScrollView style={styles.content}>
         <Card style={styles.cardResumo} elevation={2}>
           <Card.Title
             title={resumo?.nome || 'Sem lote ativo'}
@@ -50,53 +75,57 @@ export default function LoteAtualScreen({ navigation }) {
           />
 
           {resumo ? (
-            <View>
-              {/* CHIPS DO TOPO */}
+            <View style={{ gap: 10 }}>
+              {/* Linha principal padronizada */}
               <Card.Content style={styles.chipsRow}>
-                <Chip style={styles.chip} icon="pig">
-                  Suínos: {resumo.suinos_em_andamento ?? '-'}
-                </Chip>
-                <Chip style={styles.chip} icon="calendar">
-                  {resumo.status}
-                </Chip>
+                <Chip style={styles.chip} icon="pig">Suínos: {intOrDash(resumo.suinos_em_andamento)}</Chip>
+                <Chip style={styles.chip} icon="calendar">{resumo.status}</Chip>
                 <Chip style={styles.chip} icon="scale-bathroom">
-                  Peso méd. chegadas: {resumo.peso_medio_chegadas ?? '-'}
+                  Peso méd. chegadas: {nOrDash(resumo.peso_medio_chegadas, 3)}
                 </Chip>
-                <Chip style={styles.chip} icon="skull">
-                  Mortes: {resumo.total_mortes ?? '-'}
+                <Chip style={styles.chip} icon="skull">Mortes: {intOrDash(resumo.total_mortes)}</Chip>
+              </Card.Content>
+
+              <Divider style={{ marginVertical: 6 }} />
+
+              {/* Datas + dias de alojamento */}
+              <Card.Content style={styles.chipsRow}>
+                <Chip style={styles.chip} icon="calendar">
+                  Data méd. chegada: {fmtBR(resumo.data_media_chegada)}
+                </Chip>
+                <Chip style={styles.chip} icon="calendar-month">
+                  Data méd. saída: {fmtBR(resumo.data_media_saida)}
+                </Chip>
+                <Chip style={styles.chip} icon="timeline-clock">
+                  Dias de aloj.: {intOrDash(resumo.dias_alojamento)}
                 </Chip>
               </Card.Content>
 
-              {/* --- NOVO BLOCO DE MÉTRICAS --- */}
-              <Divider style={{ marginVertical: 10 }} />
-              <Card.Content style={{ gap: 6 }}>
-                <Text style={styles.metric}>
-                  Dias de alojamento: <Text style={styles.value}>{resumo.dias_alojamento ?? 0}</Text>
-                </Text>
-                <Text style={styles.metric}>
-                  Data média de chegada: <Text style={styles.value}>{fmtBR(resumo.data_media_chegada)}</Text>
-                </Text>
-                <Text style={styles.metric}>
-                  Data média de saída: <Text style={styles.value}>{fmtBR(resumo.data_media_saida)}</Text>
-                </Text>
-                <Text style={styles.metric}>
-                  Consumo total ração: <Text style={styles.value}>{resumo.consumo_total_racao ?? '-'}</Text> kg
-                </Text>
-                <Text style={styles.metric}>
-                  Ganho de peso/dia: <Text style={styles.value}>{resumo.ganho_peso_por_dia ?? '-'}</Text> kg/dia
-                </Text>
-                <Text style={styles.metric}>
-                  Consumo por dia: <Text style={styles.value}>{resumo.consumo_por_dia ?? '-'}</Text> kg/dia
-                </Text>
-                <Text style={styles.metric}>
-                  Consumo por dia/cabeça: <Text style={styles.value}>{resumo.consumo_por_dia_por_cabeca ?? '-'}</Text> kg/dia/cab
-                </Text>
-                <Text style={styles.metric}>
-                  Conversão alimentar: <Text style={styles.value}>{resumo.conversao_alimentar ?? '-'}</Text>
-                </Text>
-                <Text style={styles.metric}>
-                  % Mortalidade: <Text style={[styles.value, { color: '#B00020' }]}>{resumo.percentual_mortalidade ?? 0}%</Text>
-                </Text>
+              <Divider style={{ marginVertical: 6 }} />
+
+              {/* Métricas por cabeça e afins */}
+              <Card.Content style={styles.chipsRow}>
+                <Chip style={styles.chip} icon="weight-kilogram">
+                  Ganho/cab.: {nOrDash(ganhoPorCabeca, 3)} kg
+                </Chip>
+                <Chip style={styles.chip} icon="weight">
+                  Ganho/dia/cab.: {nOrDash(ganhoDiaPorCabeca, 4)} kg/dia/cab
+                </Chip>
+                <Chip style={styles.chip} icon="percent">
+                  % Mortalidade: {resumo.percentual_mortalidade == null ? '-' : `${Number(resumo.percentual_mortalidade).toFixed(2)}%`}
+                </Chip>
+              </Card.Content>
+
+              <Card.Content style={styles.chipsRow}>
+                <Chip style={styles.chip} icon="food-apple">
+                  Consumo ração: {nOrDash(resumo.consumo_total_racao, 3)} kg
+                </Chip>
+                <Chip style={styles.chip} icon="account">
+                  Consumo/cab.: {nOrDash(consumoPorCabeca, 4)} kg/cab
+                </Chip>
+                <Chip style={styles.chip} icon="swap-vertical">
+                  Conv. alimentar: {resumo.conversao_alimentar == null ? '-' : Number(resumo.conversao_alimentar).toFixed(4)}
+                </Chip>
               </Card.Content>
             </View>
           ) : null}
@@ -168,7 +197,7 @@ export default function LoteAtualScreen({ navigation }) {
             Saída
           </Button>
         </View>
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -186,6 +215,7 @@ const styles = StyleSheet.create({
   btn: { flexBasis: '48%', borderRadius: 12, backgroundColor: PRIMARY },
   btnContent: { height: 56 },
   btnLabel: { fontWeight: '700', color: '#fff' },
+
   metric: { color: '#2C3E50' },
   value: { fontWeight: '700', color: '#2C3E50' },
 });

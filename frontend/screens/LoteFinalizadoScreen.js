@@ -1,7 +1,7 @@
 // src/screens/LoteFinalizadoScreen.js
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { Card, Divider, Chip } from 'react-native-paper';
+import { Card, Divider, Chip, ProgressBar } from 'react-native-paper';
 import { api } from '../services/api';
 
 const fmtBR = (iso) => {
@@ -15,11 +15,14 @@ const toBR = (yyyy_mm_dd) => {
   if (!yyyy_mm_dd) return '';
   const [y, m, d] = String(yyyy_mm_dd).split('-');
   if (!y || !m || !d) return yyyy_mm_dd;
-  return `${d.padStart(2,'0')}/${m.padStart(2,'0')}/${y}`;
+  return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`;
 };
 
+const fmtNum = (v, d = 3) =>
+  (v === null || v === undefined || Number.isNaN(v)) ? '-' : Number(v).toFixed(d);
+
 export default function LoteFinalizadoScreen({ route }) {
-  const { lote } = route.params || {};   // veio da Home via finalizados
+  const { lote } = route.params || {}; // veio da Home via finalizados
   const loteId = Number(lote?.id);
 
   const [resumo, setResumo] = useState(null);
@@ -32,24 +35,22 @@ export default function LoteFinalizadoScreen({ route }) {
     if (!Number.isFinite(loteId)) return;
     try {
       setLoading(true);
-      const results = await Promise.allSettled([
+      const [resumoRes, chegadasRes, mortesRes, obsRes] = await Promise.all([
         api.getResumoLote(loteId),
         api.getChegadas(loteId),
         api.getMortes(loteId),
         api.getObservacoes(loteId),
       ]);
-      const [r, cs, ms, os] = results;
-      if (r.status === 'fulfilled') setResumo(r.value);
-      else { setResumo(null); console.log('Resumo falhou:', r.reason?.message); }
-
-      if (cs.status === 'fulfilled') setChegadas(cs.value);
-      else { setChegadas([]); console.log('Chegadas falhou:', cs.reason?.message); }
-
-      if (ms.status === 'fulfilled') setMortes(ms.value);
-      else { setMortes([]); console.log('Mortes falhou:', ms.reason?.message); }
-
-      if (os.status === 'fulfilled') setObservacoes(os.value);
-      else { setObservacoes([]); console.log('Obs falhou:', os.reason?.message); }
+      setResumo(resumoRes || null);
+      setChegadas(Array.isArray(chegadasRes) ? chegadasRes : []);
+      setMortes(Array.isArray(mortesRes) ? mortesRes : []);
+      setObservacoes(Array.isArray(obsRes) ? obsRes : []);
+    } catch (e) {
+      console.log('Erro ao carregar tela Lote Finalizado:', e.message);
+      setResumo(null);
+      setChegadas([]);
+      setMortes([]);
+      setObservacoes([]);
     } finally {
       setLoading(false);
     }
@@ -57,6 +58,38 @@ export default function LoteFinalizadoScreen({ route }) {
 
   useEffect(() => { carregar(); }, [carregar]);
 
+  const pesoMedioSaida = useMemo(() => {
+    const inAvg = Number(resumo?.peso_medio_chegadas);
+    const gainPerHead = Number(resumo?.ganho_peso_por_cabeca);
+    if (Number.isFinite(inAvg) && Number.isFinite(gainPerHead)) {
+      return inAvg + gainPerHead;
+    }
+    return null;
+  }, [resumo]);
+
+  // --------- Agregações para % por causa e por mossa ----------
+  const totalMortes = mortes.length;
+
+  const agruparPercentual = useCallback((lista, campo, vazioLabel = '—') => {
+    if (!Array.isArray(lista) || lista.length === 0) return [];
+    const map = new Map();
+    for (const item of lista) {
+      const chave = (item?.[campo] ?? '').toString().trim() || vazioLabel;
+      map.set(chave, (map.get(chave) || 0) + 1);
+    }
+    return Array.from(map.entries())
+      .map(([label, count]) => ({
+        label,
+        count,
+        percent: totalMortes ? (count / totalMortes) * 100 : 0,
+      }))
+      .sort((a, b) => b.count - a.count);
+  }, [totalMortes]);
+
+  const distPorCausa = useMemo(() => agruparPercentual(mortes, 'causa', 'Sem causa'), [mortes, agruparPercentual]);
+  const distPorMossa = useMemo(() => agruparPercentual(mortes, 'mossa', 'Sem mossa'), [mortes, agruparPercentual]);
+
+  // ------- UI blocks -------
   const Header = () => (
     <Card style={styles.cardHeader} elevation={2}>
       <Card.Title title={lote?.nome || 'Lote'} subtitle={`ID: ${loteId || '-'}`} />
@@ -89,37 +122,37 @@ export default function LoteFinalizadoScreen({ route }) {
           Mortes: <Text style={[styles.value, { color: '#B00020' }]}>{resumo?.total_mortes ?? 0}</Text>
         </Text>
         <Text style={styles.line}>
-          Suínos final: <Text style={styles.value}>{resumo?.suinos_em_andamento ?? '-'}</Text>
-        </Text>
-        <Text style={styles.line}>
-          Peso médio das chegadas: <Text style={styles.value}>{resumo?.peso_medio_chegadas ?? '-'}</Text> kg
+          Saldo suínos: <Text style={styles.value}>{resumo?.suinos_em_andamento ?? '-'}</Text>
         </Text>
 
         <Divider style={{ marginVertical: 6 }} />
 
-        {/* métricas que não usam idade média */}
         <Text style={styles.line}>
-          Consumo total ração: <Text style={styles.value}>{resumo?.consumo_total_racao ?? 0}</Text> kg
+          Peso méd. chegada: <Text style={styles.value}>{fmtNum(resumo?.peso_medio_chegadas, 3)}</Text> kg
         </Text>
         <Text style={styles.line}>
-          Ganho de peso/dia: <Text style={styles.value}>{resumo?.ganho_peso_por_dia ?? '-'}</Text> kg/dia
+          Peso méd. saída: <Text style={styles.value}>{fmtNum(pesoMedioSaida, 3)}</Text> kg
         </Text>
         <Text style={styles.line}>
-          Consumo por dia: <Text style={styles.value}>{resumo?.consumo_por_dia ?? '-'}</Text> kg/dia
+          Ganho de peso/cabeça: <Text style={styles.value}>{fmtNum(resumo?.ganho_peso_por_cabeca, 3)}</Text> kg
         </Text>
         <Text style={styles.line}>
-          Consumo por dia/cabeça: <Text style={styles.value}>{resumo?.consumo_por_dia_por_cabeca ?? '-'}</Text> kg/dia/cab
-        </Text>
-        <Text style={styles.line}>
-          Conversão alimentar: <Text style={styles.value}>{resumo?.conversao_alimentar ?? '-'}</Text>
-        </Text>
-        <Text style={styles.line}>
-          % Mortalidade: <Text style={[styles.value, { color: '#B00020' }]}>{resumo?.percentual_mortalidade ?? 0}%</Text>
+          % Mortalidade: <Text style={[styles.value, { color: '#B00020' }]}>{fmtNum(resumo?.percentual_mortalidade, 2)}</Text>%
         </Text>
 
-        {/* apenas datas e dias, como pedido */}
+        <Divider style={{ marginVertical: 6 }} />
+
         <Text style={styles.line}>
-          Dias de alojamento: <Text style={styles.value}>{resumo?.dias_alojamento ?? 0}</Text>
+          Consumo total de ração: <Text style={styles.value}>{fmtNum(resumo?.consumo_total_racao, 3)}</Text> kg
+        </Text>
+        <Text style={styles.line}>
+          Conversão alimentar: <Text style={styles.value}>{fmtNum(resumo?.conversao_alimentar, 4)}</Text>
+        </Text>
+
+        <Divider style={{ marginVertical: 6 }} />
+
+        <Text style={styles.line}>
+          Dias de alojamento: <Text style={styles.value}>{resumo?.dias_alojamento ?? '-'}</Text>
         </Text>
         <Text style={styles.line}>
           Data média de chegada: <Text style={styles.value}>{fmtBR(resumo?.data_media_chegada)}</Text>
@@ -142,7 +175,8 @@ export default function LoteFinalizadoScreen({ route }) {
             <View key={c.id} style={styles.itemRow}>
               <Text style={styles.itemTitle}>Data: {toBR(c.data)}</Text>
               <Text style={styles.itemLine}>
-                Qtd: {c.quantidade} · Peso médio: {c.peso_medio} kg{c.peso_total ? ` · Peso total: ${c.peso_total} kg` : ''}
+                Qtd: {c.quantidade} · Peso médio: {fmtNum(c.peso_medio, 3)} kg
+                {c.peso_total ? ` · Peso total: ${fmtNum(c.peso_total, 3)} kg` : ''}
               </Text>
               <Text style={styles.itemLine}>Origem: {c.origem}</Text>
               <Text style={styles.itemLine}>Responsável: {c.responsavel}</Text>
@@ -155,21 +189,64 @@ export default function LoteFinalizadoScreen({ route }) {
     </Card>
   );
 
-  const MortesCard = () => (
+  const MortesCarousel = () => (
     <Card style={styles.card} elevation={1}>
       <Card.Title title={`Mortes (${mortes.length})`} />
-      <Card.Content style={{ gap: 8 }}>
+      <Card.Content>
         {mortes.length === 0 ? (
           <Text style={styles.muted}>Nenhum registro de morte.</Text>
         ) : (
-          mortes.map((m) => (
-            <View key={m.id} style={styles.itemRow}>
-              <Text style={styles.itemTitle}>Data: {toBR(m.data_morte)}</Text>
-              <Text style={styles.itemLine}>Causa: {m.causa}</Text>
-              <Text style={styles.itemLine}>Mossa: {m.mossa}</Text>
-              <Divider style={{ marginTop: 6 }} />
-            </View>
-          ))
+          <>
+            {/* Cards individuais (carrossel) */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingVertical: 6, paddingRight: 6, gap: 10 }}
+            >
+              {mortes.map((m) => (
+                <View key={m.id} style={styles.morteCard}>
+                  <Text style={styles.morteTitle}>{toBR(m.data_morte)}</Text>
+                  <Text style={styles.morteLine}>Causa: <Text style={styles.value}>{m.causa || '—'}</Text></Text>
+                  <Text style={styles.morteLine}>Mossa: <Text style={styles.value}>{m.mossa || '—'}</Text></Text>
+                  {m.sexo ? <Text style={styles.morteLine}>Sexo: <Text style={styles.value}>{m.sexo}</Text></Text> : null}
+                </View>
+              ))}
+            </ScrollView>
+
+            {/* Distribuição percentual */}
+            <Divider style={{ marginVertical: 10 }} />
+            <Text style={[styles.itemTitle, { marginBottom: 6 }]}>Distribuição (%)</Text>
+
+            {/* Por causa */}
+            <Text style={styles.smallHeader}>Por causa</Text>
+            {distPorCausa.map((it) => (
+              <View key={`causa-${it.label}`} style={styles.distRow}>
+                <View style={styles.distHeader}>
+                  <Text style={styles.distLabel} numberOfLines={1}>
+                    {it.label}
+                  </Text>
+                  <Text style={styles.distValue}>{fmtNum(it.percent, 1)}% · {it.count}</Text>
+                </View>
+                <ProgressBar progress={it.percent / 100} style={styles.progress} />
+              </View>
+            ))}
+
+            <Divider style={{ marginVertical: 8 }} />
+
+            {/* Por mossa */}
+            <Text style={styles.smallHeader}>Por mossa</Text>
+            {distPorMossa.map((it) => (
+              <View key={`mossa-${it.label}`} style={styles.distRow}>
+                <View style={styles.distHeader}>
+                  <Text style={styles.distLabel} numberOfLines={1}>
+                    {it.label}
+                  </Text>
+                  <Text style={styles.distValue}>{fmtNum(it.percent, 1)}% · {it.count}</Text>
+                </View>
+                <ProgressBar progress={it.percent / 100} style={styles.progress} />
+              </View>
+            ))}
+          </>
         )}
       </Card.Content>
     </Card>
@@ -194,17 +271,16 @@ export default function LoteFinalizadoScreen({ route }) {
   );
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
       <Text style={styles.titulo}>Lote Finalizado</Text>
       <Text style={styles.subtitulo}>{lote?.nome || '-'}</Text>
 
       <Header />
-
       {loading && <Text style={{ marginBottom: 8 }}>Carregando…</Text>}
 
       <ResumoCard />
       <ChegadasCard />
-      <MortesCard />
+      <MortesCarousel />
       <ObservacoesCard />
     </ScrollView>
   );
@@ -212,8 +288,8 @@ export default function LoteFinalizadoScreen({ route }) {
 
 const styles = StyleSheet.create({
   container: { padding: 16, backgroundColor: '#f2f4f8' },
-  titulo: { fontSize: 22, fontWeight: 'bold', marginBottom: 4 },
-  subtitulo: { fontSize: 18, marginBottom: 12, fontWeight: '600' },
+  titulo: { fontSize: 22, fontWeight: 'bold', marginBottom: 4, color: '#2C3E50' },
+  subtitulo: { fontSize: 18, marginBottom: 12, fontWeight: '600', color: '#2C3E50' },
 
   cardHeader: { backgroundColor: '#E8F4FF', borderRadius: 12, marginBottom: 16 },
   card: { backgroundColor: '#fff', borderRadius: 12, marginBottom: 16 },
@@ -222,10 +298,29 @@ const styles = StyleSheet.create({
   chip: { backgroundColor: '#fff' },
 
   line: { fontSize: 15, color: '#2C3E50' },
-  value: { fontWeight: '700' },
+  value: { fontWeight: '700', color: '#2C3E50' },
   muted: { color: '#7f8c8d' },
 
   itemRow: { marginBottom: 8 },
   itemTitle: { fontWeight: '700', color: '#2C3E50' },
   itemLine: { color: '#2C3E50' },
+
+  morteCard: {
+    width: 220,
+    backgroundColor: '#F7F8FF',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#ECECFF',
+  },
+  morteTitle: { fontWeight: '700', marginBottom: 4, color: '#2C3E50' },
+  morteLine: { color: '#2C3E50', marginTop: 2 },
+
+  // Distribuição
+  smallHeader: { fontWeight: '700', color: '#2C3E50', marginBottom: 6, marginTop: 2 },
+  distRow: { marginBottom: 10 },
+  distHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  distLabel: { color: '#2C3E50', maxWidth: '70%' },
+  distValue: { color: '#2C3E50', fontWeight: '700' },
+  progress: { height: 8, borderRadius: 8, backgroundColor: '#ECECFF' },
 });
