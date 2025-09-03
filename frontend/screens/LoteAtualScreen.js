@@ -3,6 +3,8 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Card, Button, Divider, Chip } from 'react-native-paper';
 import { useFocusEffect } from '@react-navigation/native';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../services/api';
 
 const PRIMARY = '#0A84FF';
@@ -20,6 +22,10 @@ const intOrDash = (v) => (v === null || v === undefined ? '-' : String(v));
 export default function LoteAtualScreen({ navigation }) {
   const [resumo, setResumo] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  // alturas dinâmicas
+  const tabBarHeight = useBottomTabBarHeight();
+  const insets = useSafeAreaInsets();
 
   const carregarResumo = useCallback(async () => {
     try {
@@ -64,7 +70,14 @@ export default function LoteAtualScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.content}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={[
+          styles.contentContainer,
+          { paddingBottom: tabBarHeight + insets.bottom + 24 }, // <-- evita corte pelo tab bar
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
         <Card style={styles.cardResumo} elevation={2}>
           <Card.Title
             title={resumo?.nome || 'Sem lote ativo'}
@@ -204,7 +217,8 @@ export default function LoteAtualScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F6F9FC' },
-  content: { flex: 1, padding: 16 },
+  content: { flex: 1 },
+  contentContainer: { padding: 16 }, // padding lateral e top fixos
   cardResumo: { backgroundColor: '#E8F2FF', borderRadius: 14, marginBottom: 20 },
   cardTitle: { color: PRIMARY_DARK, fontWeight: '700' },
   cardSubtitle: { color: '#3B5568' },
